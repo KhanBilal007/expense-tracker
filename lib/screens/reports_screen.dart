@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
+import '../services/downloads_scanner_service.dart';
+import '../services/phonepe_statement_parser.dart';
+import 'import_review_screen.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -17,8 +20,144 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<Map<String, dynamic>> _txs = [], _accounts = [];
   int? _selectedAccountId; String? _selectedAccountName;
   bool _loading = true;
+  bool _syncing = false;
 
   @override void initState() { super.initState(); _loadAccounts(); }
+
+  // ── PhonePe sync ────────────────────────────────────────────────────────
+
+  Future<void> _syncPhonePe() async {
+    if (_syncing) return;
+    debugPrint('[ReportsScreen] ===== Sync PhonePe button tapped =====');
+    setState(() => _syncing = true);
+    try {
+      // 1. Find the latest statement in Downloads (auto-detect, no manual
+      //    browse on repeat syncs — see DownloadsScannerService).
+      debugPrint('[ReportsScreen] Calling DownloadsScannerService.findLatestStatement()...');
+      final scanResult = await DownloadsScannerService.findLatestStatement(
+        onNeedFolderPick: _showFolderPickDialog,
+      );
+      if (!scanResult.success) {
+        debugPrint('[ReportsScreen] Scan failed: ${scanResult.error}');
+        final msg = scanResult.error ??
+            'No PhonePe statement found in Downloads. Please download the latest PhonePe statement and try again.';
+        debugPrint('[ReportsScreen] Showing error snackbar: $msg');
+        _snack(msg, error: true);
+        return;
+      }
+
+      final file     = scanResult.file!;
+      final fileName = file.path.split('/').last;
+      final ext      = fileName.split('.').last.toLowerCase();
+      debugPrint('[ReportsScreen] Statement file found: ${file.path} (extension: .$ext)');
+
+      // 2. Parse — PDF is the primary path now.
+      debugPrint('[ReportsScreen] Parser starting (ext=.$ext)...');
+      List<PhonePeTransaction> parsed;
+      try {
+        parsed = ext == 'pdf'
+            ? await PhonePeStatementParser.parsePdf(file)
+            : await PhonePeStatementParser.parseCsv(file);
+      } catch (e) {
+        debugPrint('[ReportsScreen] Parser threw an exception: $e');
+        final msg = 'Could not parse $fileName: $e';
+        debugPrint('[ReportsScreen] Showing error snackbar: $msg');
+        _snack(msg, error: true);
+        return;
+      }
+      debugPrint('[ReportsScreen] Parser finished. Transactions parsed: ${parsed.length}');
+
+      if (parsed.isEmpty) {
+        const msg = 'Statement found, but no transactions could be detected.';
+        debugPrint('[ReportsScreen] Parsed list is EMPTY. Showing snackbar: $msg');
+        _snack(msg, error: false);
+        return;
+      }
+
+      // 3. Compare against existing app transactions (PhonePe-imported AND
+      //    manually-entered) to find only the new/missing ones.
+      final allKeys    = parsed.map((t) => t.dedupeKey).toList();
+      final newKeySet  = await _db.filterNewDedupeKeys(allKeys);
+      final newTxns    = parsed.where((t) => newKeySet.contains(t.dedupeKey)).toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime)); // newest first
+      final skippedCount = parsed.length - newTxns.length;
+
+      debugPrint('[ReportsScreen] New transactions found: ${newTxns.length}');
+      debugPrint('[ReportsScreen] Existing/duplicate transactions skipped: $skippedCount');
+
+      // 4. Pick destination account (PhonePe Wallet if present, else first).
+      final accounts  = await _db.getAccounts();
+      final ppAccount = accounts.firstWhere(
+        (a) => (a['name'] as String).toLowerCase().contains('phonepe'),
+        orElse: () => accounts.first,
+      );
+      final accountId = ppAccount['id'] as int;
+      debugPrint('[ReportsScreen] Destination account: ${ppAccount['name']} (id=$accountId)');
+
+      // 5. Review screen — shows ONLY new transactions, sorted newest first.
+      if (!mounted) return;
+      debugPrint('[ReportsScreen] Opening review screen with ${newTxns.length} new transaction(s)...');
+      final result = await Navigator.of(context).push<ImportResult>(
+        MaterialPageRoute(
+          builder: (_) => ImportReviewScreen(
+            newTransactions      : newTxns,
+            skippedDuplicateCount: skippedCount,
+            accountId            : accountId,
+          ),
+        ),
+      );
+      debugPrint('[ReportsScreen] Review screen closed. Result: $result');
+
+      // 6. Refresh Reports automatically + show summary snackbar.
+      if (result != null) {
+        debugPrint('[ReportsScreen] Transactions saved: ${result.savedCount}');
+        if (result.savedCount > 0) {
+          await _load();
+          final msg = 'Imported ${result.savedCount} new transaction${result.savedCount == 1 ? '' : 's'}'
+              '${result.skippedCount > 0 ? '. Skipped ${result.skippedCount} duplicate${result.skippedCount == 1 ? '' : 's'}' : ''}';
+          debugPrint('[ReportsScreen] Showing success snackbar: $msg');
+          _snack(msg);
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+      debugPrint('[ReportsScreen] ===== Sync PhonePe flow finished =====');
+    }
+  }
+
+  Future<bool> _showFolderPickDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select PhonePe Statement'),
+        content: const Text(
+          'Your Downloads folder could not be accessed directly.\n\n'
+          'Please select your PhonePe statement file once. The app will '
+          'remember the folder and find new statements automatically next time.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? Colors.red.shade700 : Colors.green.shade700,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  // ── End PhonePe sync ────────────────────────────────────────────────────
 
   Future<void> _loadAccounts() async {
     final a = await _db.getAccounts();
@@ -139,6 +278,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
         title: const Text('Reports'),
         backgroundColor: Colors.teal, foregroundColor: Colors.white,
         actions: [
+          // ── Sync PhonePe ──
+          _syncing
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))),
+                )
+              : IconButton(
+                  tooltip: 'Sync PhonePe',
+                  icon: const Icon(Icons.sync_alt_rounded, color: Colors.white),
+                  onPressed: _syncPhonePe,
+                ),
           if (_selectedAccountId != null)
             TextButton.icon(
               onPressed: _confirmReset,

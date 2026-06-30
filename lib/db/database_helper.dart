@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqlite_api.dart' show ConflictAlgorithm;
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,14 +13,15 @@ class DatabaseHelper {
 
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'expense_v4.db');
-    return openDatabase(path, version: 5, onCreate: _onCreate, onUpgrade: _onUpgrade);
+    return openDatabase(path, version: 6, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int v) async {
     await db.execute('''CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, balance REAL DEFAULT 0)''');
     await db.execute('''CREATE TABLE categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)''');
     await db.execute('''CREATE TABLE recurring(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, amount REAL NOT NULL, frequency TEXT NOT NULL, next_date TEXT NOT NULL, account_id INTEGER, category_id INTEGER, type TEXT NOT NULL DEFAULT 'expense')''');
-    await db.execute('''CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, category_id INTEGER, type TEXT NOT NULL, amount REAL NOT NULL, description TEXT, date TEXT NOT NULL, balance_after REAL, is_recurring INTEGER DEFAULT 0)''');
+    await db.execute('''CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, category_id INTEGER, type TEXT NOT NULL, amount REAL NOT NULL, description TEXT, date TEXT NOT NULL, balance_after REAL, is_recurring INTEGER DEFAULT 0, source TEXT DEFAULT 'manual', transaction_id TEXT, dedupe_key TEXT UNIQUE)''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_dedupe_key ON transactions(dedupe_key)');
     await db.execute('''CREATE TABLE transfers(id INTEGER PRIMARY KEY AUTOINCREMENT, from_account INTEGER, to_account INTEGER, amount REAL NOT NULL, date TEXT NOT NULL, note TEXT)''');
     await db.execute('''CREATE TABLE budgets(id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER NOT NULL, limit_amount REAL NOT NULL, month TEXT NOT NULL, UNIQUE(category_id, month))''');
     await db.execute('''CREATE TABLE rules(id INTEGER PRIMARY KEY AUTOINCREMENT, keyword TEXT NOT NULL, category_id INTEGER NOT NULL)''');
@@ -36,6 +38,14 @@ class DatabaseHelper {
       await db.rawUpdate(
         "UPDATE transactions SET amount = ABS(amount) WHERE type = 'transfer_out' AND amount < 0",
       );
+    }
+    if (oldV < 6) {
+      final info = await db.rawQuery("PRAGMA table_info(transactions)");
+      final cols = info.map((r) => r['name'] as String).toSet();
+      if (!cols.contains('source'))         await db.execute("ALTER TABLE transactions ADD COLUMN source TEXT DEFAULT 'manual'");
+      if (!cols.contains('transaction_id')) await db.execute("ALTER TABLE transactions ADD COLUMN transaction_id TEXT");
+      if (!cols.contains('dedupe_key'))     await db.execute("ALTER TABLE transactions ADD COLUMN dedupe_key TEXT");
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dedupe_key ON transactions(dedupe_key)');
     }
   }
 
@@ -235,6 +245,124 @@ class DatabaseHelper {
     await db.delete('transfers');
     await db.rawUpdate('UPDATE accounts SET balance=0');
   }
+
+  // ── PhonePe import ────────────────────────────────────────────────────────
+
+  /// Builds dedupe keys for EVERY existing transaction in the DB (both
+  /// PhonePe-imported and manually-entered ones), so that re-running sync
+  /// never creates duplicates even if a transaction was manually entered
+  /// before the PhonePe statement was imported.
+  Future<Set<String>> _existingDedupeKeys() async {
+    final db = await database;
+    final rows = await db.query('transactions', columns: ['dedupe_key', 'transaction_id', 'date', 'amount', 'type', 'description']);
+    final keys = <String>{};
+    for (final r in rows) {
+      final storedKey = r['dedupe_key'] as String?;
+      if (storedKey != null && storedKey.isNotEmpty) {
+        keys.add(storedKey);
+        continue;
+      }
+      // Fallback for old rows without dedupe_key: build the same composite
+      // key shape used by PhonePeTransaction.dedupeKey so manual entries
+      // also block duplicate PhonePe imports.
+      final txnId = r['transaction_id'] as String?;
+      if (txnId != null && txnId.isNotEmpty) {
+        keys.add('txn_$txnId');
+        continue;
+      }
+      final date = DateTime.tryParse(r['date'] as String? ?? '');
+      if (date == null) continue;
+      final dateStr = '${date.year}${date.month.toString().padLeft(2,'0')}${date.day.toString().padLeft(2,'0')}'
+          '${date.hour.toString().padLeft(2,'0')}${date.minute.toString().padLeft(2,'0')}';
+      final amount = (r['amount'] as num?)?.toDouble() ?? 0;
+      final amtStr = amount.toStringAsFixed(2).replaceAll('.', '_');
+      final desc = (r['description'] as String? ?? '').toLowerCase().replaceAll(RegExp(r'\s+'), '_').replaceAll(RegExp(r'[^a-z0-9_]'), '');
+      final type = r['type'] as String? ?? '';
+      keys.add('${dateStr}_${amtStr}_${desc}_$type');
+    }
+    return keys;
+  }
+
+  /// Given a list of dedupe keys parsed from a PhonePe statement, returns
+  /// the subset that are NEW (i.e. not already present in the app DB).
+  Future<Set<String>> filterNewDedupeKeys(List<String> dedupeKeys) async {
+    if (dedupeKeys.isEmpty) return {};
+    final existing = await _existingDedupeKeys();
+    return dedupeKeys.toSet().difference(existing);
+  }
+
+  /// Inserts only transactions whose dedupe_key is not already present.
+  /// Maps PhonePe type ('expense'/'income') directly. Category is left
+  /// null/"Unknown" unless a matching rule keyword is found.
+  /// Returns the count of newly inserted rows.
+  Future<int> insertPhonePeTransactions(
+    List<Map<String, dynamic>> txnMaps, {
+    required int accountId,
+  }) async {
+    final db     = await database;
+    int inserted = 0;
+
+    await db.transaction((txn) async {
+      for (final t in txnMaps) {
+        final appType  = (t['type'] as String? ?? 'expense') == 'income' ? 'income' : 'expense';
+        final amount   = (t['amount'] as num).toDouble();
+        final desc     = t['description'] as String? ?? 'PhonePe Transaction';
+        final dateStr  = t['date'] as String; // ISO string with real date/time
+
+        final categoryId = await _inferCategoryId(txn, desc);
+
+        final accRows = await txn.query('accounts', where: 'id=?', whereArgs: [accountId]);
+        if (accRows.isEmpty) continue;
+        final oldBal = (accRows.first['balance'] as num).toDouble();
+        final newBal = appType == 'expense' ? oldBal - amount : oldBal + amount;
+        await txn.update('accounts', {'balance': newBal}, where: 'id=?', whereArgs: [accountId]);
+
+        try {
+          await txn.insert('transactions', {
+            'account_id'    : accountId,
+            'category_id'   : categoryId, // null if no rule/keyword matched ("Unknown")
+            'type'          : appType,
+            'amount'        : amount,
+            'description'   : desc,
+            'date'          : dateStr,     // real PhonePe transaction date/time, NOT import time
+            'balance_after' : newBal,
+            'source'        : 'phonepe',
+            'transaction_id': t['transaction_id'],
+            'dedupe_key'    : t['dedupe_key'],
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+          inserted++;
+        } catch (_) {
+          // dedupe_key conflict — already imported; roll back the balance bump.
+          await txn.update('accounts', {'balance': oldBal}, where: 'id=?', whereArgs: [accountId]);
+        }
+      }
+    });
+    return inserted;
+  }
+
+  /// Checks user-defined rules first, then a built-in keyword map.
+  /// Returns null (saved as "Unknown" in UI) if nothing matches.
+  Future<int?> _inferCategoryId(DatabaseExecutor db, String description) async {
+    final lower = description.toLowerCase();
+    final rules = await db.query('rules');
+    for (final r in rules) {
+      if (lower.contains(r['keyword'] as String)) return r['category_id'] as int;
+    }
+    String? catName;
+    if (_matchesAny(lower, ['swiggy','zomato','food','restaurant','cafe','dhaba'])) catName = 'Food';
+    else if (_matchesAny(lower, ['uber','ola','rapido','metro','bus','auto','cab','petrol','fuel'])) catName = 'Transport';
+    else if (_matchesAny(lower, ['amazon','flipkart','myntra','ajio','meesho'])) catName = 'Shopping';
+    else if (_matchesAny(lower, ['electricity','water','gas','internet','broadband','jio','airtel','vi ','bsnl','dth','recharge'])) catName = 'Bills';
+    else if (_matchesAny(lower, ['hospital','pharmacy','medical','doctor','clinic','apollo'])) catName = 'Health';
+    else if (_matchesAny(lower, ['movie','bookmyshow','pvr','inox','netflix','hotstar','spotify'])) catName = 'Entertainment';
+    if (catName == null) return null;
+    final rows = await db.query('categories', where: 'name=?', whereArgs: [catName]);
+    return rows.isNotEmpty ? rows.first['id'] as int : null;
+  }
+
+  static bool _matchesAny(String text, List<String> kws) => kws.any(text.contains);
+
+  // ── End PhonePe import ────────────────────────────────────────────────────
 
   Future<String> exportCsv() async {
     final txs = await getTransactions();
