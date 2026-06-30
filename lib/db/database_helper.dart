@@ -92,6 +92,96 @@ class DatabaseHelper {
 
   Future<int> insertTransaction(Map<String, dynamic> data) async => (await database).insert('transactions', data);
 
+  double _balanceEffectForTransaction(String type, double amount) {
+    final value = amount.abs();
+    switch (type) {
+      case 'income':
+      case 'transfer_in':
+        return value;
+      case 'expense':
+      case 'transfer_out':
+        return -value;
+      default:
+        return -value;
+    }
+  }
+
+  Future<void> updateTransactionAccount(int transactionId, int newAccountId) async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+      final txnRows = await txn.query(
+        'transactions',
+        where: 'id=?',
+        whereArgs: [transactionId],
+        limit: 1,
+      );
+
+      if (txnRows.isEmpty) {
+        throw Exception('Transaction not found');
+      }
+
+      final transaction = txnRows.first;
+      final oldAccountId = transaction['account_id'] as int?;
+      if (oldAccountId == newAccountId) return;
+
+      final newAccountRows = await txn.query(
+        'accounts',
+        where: 'id=?',
+        whereArgs: [newAccountId],
+        limit: 1,
+      );
+
+      if (newAccountRows.isEmpty) {
+        throw Exception('New account not found');
+      }
+
+      final type = transaction['type'] as String? ?? 'expense';
+      final amount = (transaction['amount'] as num).toDouble().abs();
+      final balanceEffect = _balanceEffectForTransaction(type, amount);
+
+      if (oldAccountId != null) {
+        final oldAccountRows = await txn.query(
+          'accounts',
+          where: 'id=?',
+          whereArgs: [oldAccountId],
+          limit: 1,
+        );
+
+        if (oldAccountRows.isNotEmpty) {
+          final oldBalance = (oldAccountRows.first['balance'] as num).toDouble();
+          await txn.update(
+            'accounts',
+            {'balance': oldBalance - balanceEffect},
+            where: 'id=?',
+            whereArgs: [oldAccountId],
+          );
+        }
+      }
+
+      final newBalanceBefore = (newAccountRows.first['balance'] as num).toDouble();
+      final newBalanceAfter = newBalanceBefore + balanceEffect;
+
+      await txn.update(
+        'accounts',
+        {'balance': newBalanceAfter},
+        where: 'id=?',
+        whereArgs: [newAccountId],
+      );
+
+      await txn.update(
+        'transactions',
+        {
+          'account_id': newAccountId,
+          'balance_after': newBalanceAfter,
+        },
+        where: 'id=?',
+        whereArgs: [transactionId],
+      );
+    });
+  }
+
+
   Future<void> doTransfer({
     required int fromId,
     required int toId,

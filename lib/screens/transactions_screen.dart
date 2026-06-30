@@ -169,12 +169,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         return;
       }
 
-      final accounts  = await _db.getAccounts();
-      final ppAccount = accounts.firstWhere(
-        (a) => (a['name'] as String).toLowerCase().contains('phonepe'),
-        orElse: () => accounts.first,
-      );
-      final accountId = ppAccount['id'] as int;
+      final accounts = await _db.getAccounts();
+      if (accounts.isEmpty) {
+        _snack('Please create an account first.', error: true);
+        return;
+      }
+
+      final defaultAccountId = await _db.getDefaultAccountId();
+      int accountId = accounts.first['id'] as int;
+
+      if (defaultAccountId != null) {
+        final matchingDefault = accounts.where((a) => a['id'] == defaultAccountId);
+        if (matchingDefault.isNotEmpty) {
+          accountId = matchingDefault.first['id'] as int;
+        }
+      }
+      final selectedAccountName = accounts.firstWhere((a) => a['id'] == accountId)['name'];
+      debugPrint('[TransactionsScreen] PhonePe import account selected: $selectedAccountName ($accountId)');
 
       if (!mounted) return;
       debugPrint('[TransactionsScreen] Opening review screen with ${newTxns.length} new transaction(s)...');
@@ -197,6 +208,78 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     } finally {
       if (mounted) setState(() => _syncing = false);
       debugPrint('[TransactionsScreen] ===== Sync PhonePe flow finished =====');
+    }
+  }
+
+
+  Future<void> _showChangeAccountDialog(Map<String, dynamic> transaction) async {
+    if (_accounts.isEmpty) {
+      _snack('Please create an account first.', error: true);
+      return;
+    }
+
+    final transactionId = transaction['id'] as int?;
+    if (transactionId == null) {
+      _snack('Transaction id missing.', error: true);
+      return;
+    }
+
+    int? selectedAccountId = transaction['account_id'] as int?;
+    if (selectedAccountId == null || !_accounts.any((a) => a['id'] == selectedAccountId)) {
+      selectedAccountId = _accounts.first['id'] as int;
+    }
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Change Account'),
+          content: DropdownButtonFormField<int>(
+            value: selectedAccountId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Account',
+              border: OutlineInputBorder(),
+            ),
+            items: _accounts
+                .map((a) => DropdownMenuItem<int>(
+                      value: a['id'] as int,
+                      child: Text(a['name'] as String),
+                    ))
+                .toList(),
+            onChanged: (v) => setDialogState(() => selectedAccountId = v),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: selectedAccountId == null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true || selectedAccountId == null) return;
+
+    final oldAccountId = transaction['account_id'] as int?;
+    if (oldAccountId == selectedAccountId) {
+      _snack('Account already selected.');
+      return;
+    }
+
+    try {
+      await _db.updateTransactionAccount(transactionId, selectedAccountId!);
+      await _load();
+      _snack('Transaction account updated.');
+    } catch (e) {
+      debugPrint('[TransactionsScreen] Could not update transaction account: $e');
+      _snack('Could not update account: $e', error: true);
     }
   }
 
@@ -270,6 +353,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final desc = t['description']?.toString().isNotEmpty == true ? t['description'] as String : (t['category_name'] as String? ?? 'Transaction');
                 final cat  = t['category_name'] as String?;
                 return Card(margin: const EdgeInsets.symmetric(vertical: 4), child: ListTile(
+                  onTap: () => _showChangeAccountDialog(t),
                   leading: CircleAvatar(backgroundColor: col.withValues(alpha: 0.1), child: Icon(_txIcon(type), color: col, size: 18)),
                   title: Text(desc, style: const TextStyle(fontWeight: FontWeight.w500)),
                   // item 6: category shown in subtitle
