@@ -30,13 +30,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final defId    = await _db.getDefaultAccountId();
     final sheetsUrl = await _sheets.getScriptUrl() ?? '';
     if (!mounted) return;
+    final validDefId = (defId != null && accounts.any((a) => a['id'] == defId))
+        ? defId
+        : (accounts.isNotEmpty ? accounts.first['id'] as int : null);
     setState(() {
       _darkMode     = prefs.getBool('darkMode') ?? false;
       _isHindi      = prefs.getBool('hindi') ?? false;
       _accounts     = accounts;
-      _defaultAccId = defId ?? (accounts.isNotEmpty ? accounts.first['id'] as int : null);
+      _defaultAccId = validDefId;
       _sheetsCtrl.text = sheetsUrl;
     });
+    if (validDefId != null && validDefId != defId) {
+      await _db.setDefaultAccountId(validDefId);
+    }
   }
 
   // Item 11: Reset with mandatory backup prompt

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
-import '../services/sms_parser.dart';
+import '../services/downloads_scanner_service.dart';
+import '../services/phonepe_statement_parser.dart';
+import 'import_review_screen.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -14,6 +16,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String  _filterType = 'all';
   int?    _filterAccount, _filterCategory;
   DateTime? _fromDate, _toDate;   // item 12: date range
+  bool _syncing = false;
 
   @override void initState() { super.initState(); _load(); }
 
@@ -115,52 +118,114 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  // Item 2: paste SMS dialog  
-  void _showSmsDialog() async {
-    final smsCtrl  = TextEditingController();
-    final accounts = await _db.getAccounts();
-    final cats     = await _db.getCategories();
-    final defAccId = await _db.getDefaultAccountId();
-    int? selAcc    = (defAccId != null && accounts.any((a) => a['id'] == defAccId)) ? defAccId : (accounts.isNotEmpty ? accounts.first['id'] as int : null);
-    int? selCat    = cats.isNotEmpty ? cats.first['id'] as int : null;
-    if (!mounted) return;
-    showDialog(context: context, builder: (_) => StatefulBuilder(builder: (ctx, setS) {
-      Map<String, dynamic>? parsed;
-      return AlertDialog(
-        title: const Text('Paste PhonePe / UPI SMS'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Paste your SMS text below:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 8),
-          TextField(controller: smsCtrl, maxLines: 4, decoration: const InputDecoration(hintText: 'Rs.500 debited…', border: OutlineInputBorder()),
-            onChanged: (val) { setS(() => parsed = SmsParser.parse(val)); }),
-          if (parsed != null) ...[
-            const SizedBox(height: 10),
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('✓ ${parsed!['type']}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                Text('₹${parsed!['amount']}  •  ${parsed!['merchant']}'),
-              ])),
-            const SizedBox(height: 8),
-            DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: selAcc, items: accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text(a['name'] as String))).toList(), onChanged: (v) => setS(() => selAcc = v))),
-            if (parsed!['type'] == 'expense') DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: selCat, items: cats.map((c) => DropdownMenuItem<int>(value: c['id'] as int, child: Text(c['name'] as String))).toList(), onChanged: (v) => setS(() => selCat = v))),
-          ],
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: parsed == null || selAcc == null ? null : () async {
-              final amount = (parsed!['amount'] as num).toDouble(); final type = parsed!['type'] as String;
-              final acc = accounts.firstWhere((a) => a['id'] == selAcc); final bal = (acc['balance'] as num).toDouble();
-              final newBal = type == 'expense' ? bal - amount : bal + amount;
-              await _db.updateAccountBalance(selAcc!, newBal);
-              await _db.insertTransaction({'account_id': selAcc, 'category_id': type == 'expense' ? selCat : null, 'type': type, 'amount': amount, 'description': parsed!['merchant'], 'date': DateTime.now().toIso8601String(), 'balance_after': newBal});
-              if (context.mounted) Navigator.pop(context);
-              _load();
-            },
-            child: const Text('Add')),
-        ],
+  // PhonePe statement sync (replaces the old SMS paste feature)
+  Future<void> _syncPhonePe() async {
+    if (_syncing) return;
+    debugPrint('[TransactionsScreen] ===== Sync PhonePe button tapped =====');
+    setState(() => _syncing = true);
+    try {
+      debugPrint('[TransactionsScreen] Calling DownloadsScannerService.findLatestStatement()...');
+      final scanResult = await DownloadsScannerService.findLatestStatement(
+        onNeedFolderPick: _showFolderPickDialog,
       );
-    })).then((_) => smsCtrl.dispose());
+      if (!scanResult.success) {
+        debugPrint('[TransactionsScreen] Scan failed: ${scanResult.error}');
+        final msg = scanResult.error ??
+            'No PhonePe statement found in Downloads. Please download the latest PhonePe statement and try again.';
+        _snack(msg, error: true);
+        return;
+      }
+
+      final file = scanResult.file!;
+      final ext  = file.path.split('.').last.toLowerCase();
+      debugPrint('[TransactionsScreen] Statement file found: ${file.path} (extension: .$ext)');
+
+      List<PhonePeTransaction> parsed;
+      try {
+        parsed = ext == 'pdf'
+            ? await PhonePeStatementParser.parsePdf(file)
+            : await PhonePeStatementParser.parseCsv(file);
+      } catch (e) {
+        debugPrint('[TransactionsScreen] Parser threw an exception: $e');
+        _snack('Could not parse statement: $e', error: true);
+        return;
+      }
+      debugPrint('[TransactionsScreen] Parser finished. Transactions parsed: ${parsed.length}');
+
+      if (parsed.isEmpty) {
+        _snack('Statement found, but no transactions could be detected.', error: false);
+        return;
+      }
+
+      final allKeys   = parsed.map((t) => t.dedupeKey).toList();
+      final newKeySet = await _db.filterNewDedupeKeys(allKeys);
+      final newTxns   = parsed.where((t) => newKeySet.contains(t.dedupeKey)).toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime)); // newest first
+      final skippedCount = parsed.length - newTxns.length;
+      debugPrint('[TransactionsScreen] New: ${newTxns.length}, skipped duplicates: $skippedCount');
+
+      if (newTxns.isEmpty) {
+        _snack('No new transactions found', error: false);
+        return;
+      }
+
+      final accounts  = await _db.getAccounts();
+      final ppAccount = accounts.firstWhere(
+        (a) => (a['name'] as String).toLowerCase().contains('phonepe'),
+        orElse: () => accounts.first,
+      );
+      final accountId = ppAccount['id'] as int;
+
+      if (!mounted) return;
+      debugPrint('[TransactionsScreen] Opening review screen with ${newTxns.length} new transaction(s)...');
+      final result = await Navigator.of(context).push<ImportResult>(
+        MaterialPageRoute(
+          builder: (_) => ImportReviewScreen(
+            newTransactions      : newTxns,
+            skippedDuplicateCount: skippedCount,
+            accountId            : accountId,
+          ),
+        ),
+      );
+      debugPrint('[TransactionsScreen] Review screen closed. Result: $result');
+
+      if (result != null && result.savedCount > 0) {
+        await _load(); // refresh transaction list, newest first (already sorted by DB query)
+        _snack('Imported ${result.savedCount} new transaction${result.savedCount == 1 ? '' : 's'}'
+            '${result.skippedCount > 0 ? '. Skipped ${result.skippedCount} duplicate${result.skippedCount == 1 ? '' : 's'}' : ''}');
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+      debugPrint('[TransactionsScreen] ===== Sync PhonePe flow finished =====');
+    }
+  }
+
+  Future<bool> _showFolderPickDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Select PhonePe Statement'),
+        content: const Text(
+          'Your Downloads folder could not be accessed directly.\n\n'
+          'Please select your PhonePe statement file once. The app will '
+          'remember the folder and find new statements automatically next time.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? Colors.red.shade700 : Colors.green.shade700,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
@@ -173,7 +238,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         title: Text('Transactions${_filtered.length != _all.length ? ' (${_filtered.length})' : ''}'),
         backgroundColor: cs.primary, foregroundColor: cs.onPrimary,
         actions: [
-          IconButton(icon: const Icon(Icons.sms), tooltip: 'Paste SMS', onPressed: _showSmsDialog),
+          _syncing
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))),
+                )
+              : IconButton(icon: const Icon(Icons.sync_alt_rounded), tooltip: 'Sync PhonePe', onPressed: _syncPhonePe),
           Stack(alignment: Alignment.topRight, children: [
             IconButton(icon: const Icon(Icons.filter_list), onPressed: _showFilterSheet),
             if (filtersActive) Positioned(top: 8, right: 8, child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle))),
