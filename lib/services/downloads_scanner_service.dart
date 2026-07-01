@@ -7,8 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ScanResult {
   final File? file;
   final String? error;
-  const ScanResult.found(File f) : file = f, error = null;
-  const ScanResult.notFound(String msg) : file = null, error = msg;
+  const ScanResult.found(File f)
+      : file = f,
+        error = null;
+  const ScanResult.notFound(String msg)
+      : file = null,
+        error = msg;
   bool get success => file != null;
 }
 
@@ -23,8 +27,16 @@ class ScanResult {
 class DownloadsScannerService {
   static const _prefKey = 'phonepe_folder_path';
 
-  static final _keywords = ['phonepe', 'phone_pe', 'phone-pe', 'statement', 'transaction', 'transactions', 'history'];
-  static final _exts     = {'.pdf', '.csv', '.txt'};
+  static final _keywords = [
+    'phonepe',
+    'phone_pe',
+    'phone-pe',
+    'statement',
+    'transaction',
+    'transactions',
+    'history'
+  ];
+  static final _exts = {'.pdf', '.csv', '.txt'};
 
   // ── Public API ────────────────────────────────────────────────────────────
 
@@ -42,18 +54,21 @@ class DownloadsScannerService {
     }
 
     // 2. Try direct OS-level access to the default Downloads path
-    debugPrint('[DownloadsScanner] Remembered folder unavailable. Trying direct Downloads access...');
+    debugPrint(
+        '[DownloadsScanner] Remembered folder unavailable. Trying direct Downloads access...');
     final direct = await _tryDirect();
     if (direct.success) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefKey, '/storage/emulated/0/Download');
-      debugPrint('[DownloadsScanner] Found via direct access. Remembered path for next time.');
+      debugPrint(
+          '[DownloadsScanner] Found via direct access. Remembered path for next time.');
       return direct;
     }
 
     // 3. Last resort: ask the user to pick the folder/file ONCE.
     debugPrint('[DownloadsScanner] Direct access failed: ${direct.error}');
-    debugPrint('[DownloadsScanner] Falling back to manual one-time file picker...');
+    debugPrint(
+        '[DownloadsScanner] Falling back to manual one-time file picker...');
     final go = await onNeedFolderPick();
     if (!go) {
       debugPrint('[DownloadsScanner] User cancelled folder picker dialog.');
@@ -75,14 +90,17 @@ class DownloadsScannerService {
     debugPrint('[DownloadsScanner] Permission.storage status: $status');
     if (!status.isGranted) {
       status = await Permission.storage.request();
-      debugPrint('[DownloadsScanner] Permission.storage requested, result: $status');
+      debugPrint(
+          '[DownloadsScanner] Permission.storage requested, result: $status');
     }
     if (!status.isGranted) {
       status = await Permission.manageExternalStorage.status;
-      debugPrint('[DownloadsScanner] Permission.manageExternalStorage status: $status');
+      debugPrint(
+          '[DownloadsScanner] Permission.manageExternalStorage status: $status');
       if (!status.isGranted) {
         status = await Permission.manageExternalStorage.request();
-        debugPrint('[DownloadsScanner] Permission.manageExternalStorage requested, result: $status');
+        debugPrint(
+            '[DownloadsScanner] Permission.manageExternalStorage requested, result: $status');
       }
     }
     if (!status.isGranted) {
@@ -91,9 +109,11 @@ class DownloadsScannerService {
     }
 
     final dir = Directory('/storage/emulated/0/Download');
-    debugPrint('[DownloadsScanner] Checking default Downloads path: ${dir.path}');
+    debugPrint(
+        '[DownloadsScanner] Checking default Downloads path: ${dir.path}');
     if (!await dir.exists()) {
-      debugPrint('[DownloadsScanner] Default Downloads folder does NOT exist at ${dir.path}');
+      debugPrint(
+          '[DownloadsScanner] Default Downloads folder does NOT exist at ${dir.path}');
       return const ScanResult.notFound('Default Downloads folder not found.');
     }
     return _scanDir(dir);
@@ -101,7 +121,7 @@ class DownloadsScannerService {
 
   static Future<ScanResult> _tryRemembered() async {
     final prefs = await SharedPreferences.getInstance();
-    final path  = prefs.getString(_prefKey);
+    final path = prefs.getString(_prefKey);
     if (path == null) {
       debugPrint('[DownloadsScanner] No remembered folder path saved.');
       return const ScanResult.notFound('No saved folder.');
@@ -110,7 +130,8 @@ class DownloadsScannerService {
 
     final dir = Directory(path);
     if (!await dir.exists()) {
-      debugPrint('[DownloadsScanner] Remembered folder no longer exists. Clearing it.');
+      debugPrint(
+          '[DownloadsScanner] Remembered folder no longer exists. Clearing it.');
       await prefs.remove(_prefKey);
       return const ScanResult.notFound('Saved folder no longer exists.');
     }
@@ -118,11 +139,12 @@ class DownloadsScannerService {
   }
 
   static Future<ScanResult> _pickAndRemember() async {
-    debugPrint('[DownloadsScanner] Opening file picker for manual selection...');
+    debugPrint(
+        '[DownloadsScanner] Opening file picker for manual selection...');
     final result = await FilePicker.platform.pickFiles(
-      type             : FileType.custom,
+      type: FileType.custom,
       allowedExtensions: ['pdf', 'csv', 'txt'],
-      dialogTitle      : 'Select your PhonePe statement (one-time setup)',
+      dialogTitle: 'Select your PhonePe statement (one-time setup)',
     );
     if (result == null || result.files.isEmpty) {
       debugPrint('[DownloadsScanner] User did not select any file.');
@@ -146,27 +168,33 @@ class DownloadsScannerService {
   static ScanResult _scanDir(Directory dir) {
     try {
       debugPrint('[DownloadsScanner] Scanning directory: ${dir.path}');
-      final allFiles = dir.listSync(followLinks: false).whereType<File>().toList();
+      final allFiles =
+          dir.listSync(followLinks: false).whereType<File>().toList();
 
-      debugPrint('[DownloadsScanner] Total files found in folder: ${allFiles.length}');
+      debugPrint(
+          '[DownloadsScanner] Total files found in folder: ${allFiles.length}');
       for (final f in allFiles) {
         debugPrint('[DownloadsScanner]   - ${f.path.split('/').last}');
       }
 
       final matches = allFiles.where((f) {
         final name = f.path.split('/').last.toLowerCase();
-        final ext  = '.${name.split('.').last}';
+        final ext = '.${name.split('.').last}';
         return _exts.contains(ext) && _keywords.any((k) => name.contains(k));
       }).toList()
-        ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+        ..sort(
+            (a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
-      debugPrint('[DownloadsScanner] Candidate PhonePe files (name+extension matched): ${matches.length}');
+      debugPrint(
+          '[DownloadsScanner] Candidate PhonePe files (name+extension matched): ${matches.length}');
       for (final f in matches) {
-        debugPrint('[DownloadsScanner]   candidate -> ${f.path} (modified: ${f.statSync().modified})');
+        debugPrint(
+            '[DownloadsScanner]   candidate -> ${f.path} (modified: ${f.statSync().modified})');
       }
 
       if (matches.isEmpty) {
-        debugPrint('[DownloadsScanner] NO MATCHING PHONEPE FILE FOUND in ${dir.path}');
+        debugPrint(
+            '[DownloadsScanner] NO MATCHING PHONEPE FILE FOUND in ${dir.path}');
         return const ScanResult.notFound(
           'No PhonePe statement found in Downloads. Please download the latest PhonePe statement and try again.',
         );
@@ -176,7 +204,8 @@ class DownloadsScannerService {
       final pdfMatches = matches.where((f) => f.path.toLowerCase().endsWith('.pdf')).toList();
       final selected = pdfMatches.isNotEmpty ? pdfMatches.first : matches.first;
 
-      debugPrint('[DownloadsScanner] Selected latest statement file: ${selected.path}');
+      debugPrint(
+          '[DownloadsScanner] Selected latest statement file: ${selected.path}');
       return ScanResult.found(selected);
     } catch (e) {
       debugPrint('[DownloadsScanner] Error scanning folder: $e');
