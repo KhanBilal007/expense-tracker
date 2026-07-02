@@ -17,6 +17,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   double _resetBase = 0, _resetAmount = 0, _resetOpening = 0;
   Map<String, double> _catExp = {};
   List<Map<String, dynamic>> _txs = [], _accounts = [];
+  Set<int> _resetTransactionIds = {};
   int? _selectedAccountId;
   String? _selectedAccountName;
   bool _loading = true;
@@ -74,6 +75,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           accountId: _selectedAccountId);
       final txs = await _db.getTransactionsByRange(rangeFrom, _toStr,
           accountId: _selectedAccountId);
+      final resetIds = await _db.getResetTransactionIds();
       final reportTotal = resetDate == null ? total : resetBase + income;
       final reportBalance = resetDate == null ? total : reportTotal - expense;
       if (!mounted) return;
@@ -85,6 +87,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _resetBase = resetBase;
         _resetAmount = resetAmount;
         _resetOpening = resetOpening;
+        _resetTransactionIds = resetIds;
         _catExp = catExp;
         _txs = txs;
       });
@@ -238,6 +241,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _load();
   }
 
+  Future<void> _confirmUndoReset() async {
+    final accountId = _selectedAccountId;
+    if (accountId == null || _resetDate == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Undo reset?'),
+        content: const Text(
+          'This will remove the report reset for this account. Old transactions will be visible again. This will not delete transactions or change account balance.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Undo Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await _db.clearAccountReset(accountId);
+    if (!mounted) return;
+    setState(() => _selectingReset = false);
+    _load();
+  }
+
   void _showAccountPicker() {
     showModalBottomSheet(
       context: context,
@@ -321,10 +355,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
         foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
-            onPressed: _confirmReset,
+            onPressed: (_selectedAccountId != null && _resetDate != null)
+                ? _confirmUndoReset
+                : _confirmReset,
             icon: const Icon(Icons.restart_alt, color: Colors.white, size: 18),
-            label: const Text('Reset',
-                style: TextStyle(color: Colors.white, fontSize: 12)),
+            label: Text(
+              (_selectedAccountId != null && _resetDate != null)
+                  ? 'Undo Reset'
+                  : 'Reset',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
           TextButton.icon(
             onPressed: _showAccountPicker,
@@ -343,40 +383,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  // Account filter banner
-                  if (_selectedAccountName != null)
-                    Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(
-                            color: Colors.teal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Row(children: [
-                          const Icon(Icons.filter_alt,
-                              color: Colors.teal, size: 16),
-                          const SizedBox(width: 6),
-                          Text('Showing: $_selectedAccountName',
-                              style: const TextStyle(
-                                  color: Colors.teal,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500)),
-                          const Spacer(),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedAccountId = null;
-                                _selectedAccountName = null;
-                              });
-                              _load();
-                            },
-                            child: const Text('Clear',
-                                style: TextStyle(
-                                    color: Colors.teal, fontSize: 12)),
-                          ),
-                        ])),
-
                   // Reset info banner
                   if (_resetDate != null && _selectedAccountId != null)
                     Container(
@@ -481,14 +487,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                   // Summary cards
                   Row(children: [
-                    _summaryCard('Total Amount', _accountTotal, Colors.blue,
+                    _summaryCard('Available Funds', _accountTotal, Colors.blue,
                         Icons.account_balance_wallet, fmt),
                     const SizedBox(width: 8),
-                    _summaryCard('Expense', _expense, Colors.red,
-                        Icons.arrow_upward, fmt),
+                    _summaryCard(
+                        'Spent', _expense, Colors.red, Icons.arrow_upward, fmt),
                     const SizedBox(width: 8),
                     _summaryCard(
-                        'Balance',
+                        'Current Balance',
                         _balance,
                         _balance >= 0 ? Colors.green : Colors.orange,
                         Icons.account_balance_wallet,
@@ -566,6 +572,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ? t['description'] as String
                               : (t['category_name'] as String? ?? type);
                       final cat = t['category_name'] as String?;
+                      final txId = t['id'] as int?;
+                      final displayDesc = _resetTransactionIds.contains(txId)
+                          ? 'Balance Reset'
+                          : type == 'income'
+                              ? 'Money Added'
+                              : type == 'expense'
+                                  ? 'Expense'
+                                  : desc;
                       return Card(
                           margin: const EdgeInsets.symmetric(vertical: 3),
                           child: ListTile(
@@ -575,7 +589,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   : null,
                               leading:
                                   Icon(_txIcon(type), color: col, size: 18),
-                              title: Text(desc,
+                              title: Text(displayDesc,
                                   style: const TextStyle(fontSize: 13)),
                               subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,12 +633,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         Text(label,
                             style: const TextStyle(
                                 fontSize: 11, color: Colors.grey),
-                            overflow: TextOverflow.ellipsis),
+                            maxLines: 2,
+                            softWrap: true),
                         Text('₹${fmt.format(val.abs())}',
                             style: TextStyle(
                                 color: color,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12)),
+                                fontSize: 14)),
                       ]))));
 
   Widget _secHeader(String t) => Align(

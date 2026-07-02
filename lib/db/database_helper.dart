@@ -680,6 +680,8 @@ class DatabaseHelper {
     final cutoffDate =
         resetDate.add(const Duration(microseconds: 1)).toIso8601String();
     await prefs.setString('reset_date_$accountId', cutoffDate);
+    await prefs.setInt('reset_transaction_id_$accountId', resetId);
+    await prefs.setString('reset_transaction_date_$accountId', resetDateRaw);
     await prefs.setDouble('reset_amount_$accountId', resetAmount);
     await prefs.setDouble('reset_opening_balance_$accountId', opening);
     await prefs.setDouble('reset_report_base_$accountId', reportBase);
@@ -704,11 +706,39 @@ class DatabaseHelper {
         0.0;
   }
 
+  Future<Set<int>> getResetTransactionIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = <int>{};
+    for (final key in prefs.getKeys()) {
+      if (key.startsWith('reset_transaction_id_')) {
+        final id = prefs.getInt(key);
+        if (id != null) ids.add(id);
+      }
+    }
+    return ids;
+  }
+
   Future<double> getResetReportBase(int accountId) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getDouble('reset_report_base_$accountId') ??
         prefs.getDouble('reset_balance_$accountId') ??
         0.0;
+  }
+
+  Future<void> clearAccountReset(int accountId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = [
+      'reset_date_$accountId',
+      'reset_amount_$accountId',
+      'reset_report_base_$accountId',
+      'reset_balance_$accountId',
+      'reset_transaction_id_$accountId',
+      'reset_transaction_date_$accountId',
+      'reset_opening_balance_$accountId',
+    ];
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
   }
 
   Future<double> getResetBalance(int accountId) async {

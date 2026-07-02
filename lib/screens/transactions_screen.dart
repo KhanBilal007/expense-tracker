@@ -18,6 +18,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       _accounts = [],
       _categories = [];
   String _filterType = 'all';
+  Set<int> _resetTransactionIds = {};
   int? _filterAccount, _filterCategory;
   DateTime? _fromDate, _toDate; // item 12: date range
   bool _syncing = false;
@@ -32,10 +33,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final txs = await _db.getTransactions();
     final accs = await _db.getAccounts();
     final cats = await _db.getCategories();
+    final resetIds = await _db.getResetTransactionIds();
     if (!mounted) return;
     _all = txs;
     _accounts = accs;
     _categories = cats;
+    _resetTransactionIds = resetIds;
     _applyFilter();
     setState(() {});
   }
@@ -530,9 +533,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final displayAmount = ((t['amount'] as num).toDouble()).abs();
                 final date =
                     DateTime.tryParse(t['date'] ?? '') ?? DateTime.now();
-                final desc = t['description']?.toString().isNotEmpty == true
-                    ? t['description'] as String
-                    : (t['category_name'] as String? ?? 'Transaction');
+                final txId = t['id'] as int?;
+                final rawDesc = t['description']?.toString();
+                final desc = _resetTransactionIds.contains(txId)
+                    ? 'Balance Reset'
+                    : type == 'income'
+                        ? 'Money Added'
+                        : type == 'expense'
+                            ? 'Expense'
+                            : rawDesc?.isNotEmpty == true
+                                ? rawDesc!
+                                : (t['category_name'] as String? ??
+                                    'Transaction');
                 final cat = t['category_name'] as String?;
                 return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4),
