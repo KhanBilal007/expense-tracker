@@ -19,6 +19,51 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _recent = [], _accounts = [];
   bool _loading = true;
 
+  Widget _compactMetricAction(
+      String title, String amount, IconData icon, Color color) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: color, size: 30),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            title,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: cs.onSurface,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            amount,
+            maxLines: 1,
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -66,12 +111,65 @@ class _HomeScreenState extends State<HomeScreen> {
       ? Icons.arrow_downward
       : Icons.arrow_upward;
   String _txSign(String t) => (t == 'income' || t == 'transfer_in') ? '+' : '-';
+  String _fixRupee(String text) =>
+      text.replaceAll('â‚¹', '₹').replaceAll('Ã¢â€šÂ¹', '₹');
+
+  Widget _metricActionCard(
+      String title, String amount, IconData icon, Color color) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurface.withOpacity(0.72),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                amount,
+                maxLines: 1,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final fmt = NumberFormat('#,##0.00');
     return Scaffold(
+      backgroundColor: cs.surface,
       appBar: AppBar(
         title: const Text('Expense Tracker',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -96,135 +194,195 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ── Item 16: Attractive dashboard ────────────────────────────────
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                              colors: [
-                                cs.primary,
-                                cs.primary.withValues(alpha: 0.75)
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                                color: cs.primary.withValues(alpha: 0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8))
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(22),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('Current Balance',
-                                        style: TextStyle(
-                                            color: cs.onPrimary
-                                                .withValues(alpha: 0.8),
-                                            fontSize: 13,
-                                            letterSpacing: .5)),
-                                    Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.18),
-                                            borderRadius:
-                                                BorderRadius.circular(20)),
-                                        child: Text(
-                                            DateFormat('MMM yyyy')
-                                                .format(DateTime.now()),
-                                            style: TextStyle(
-                                                color: cs.onPrimary,
-                                                fontSize: 11))),
-                                  ]),
-                              const SizedBox(height: 6),
-                              Text('₹${fmt.format(_totalBalance)}',
-                                  style: TextStyle(
-                                      color: cs.onPrimary,
-                                      fontSize: 34,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -0.5)),
-                              const SizedBox(height: 18),
-                              // Item 5: per-account balances
-                              ..._accounts.map((a) {
-                                final bal = (a['balance'] as num).toDouble();
-                                return Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(children: [
-                                            Container(
-                                                width: 7,
-                                                height: 7,
-                                                decoration: const BoxDecoration(
-                                                    color: Colors.white54,
-                                                    shape: BoxShape.circle)),
-                                            const SizedBox(width: 7),
-                                            Text(a['name'] as String,
-                                                style: TextStyle(
-                                                    color: cs.onPrimary
-                                                        .withValues(
-                                                            alpha: 0.85),
-                                                    fontSize: 12)),
-                                          ]),
-                                          Text('₹${fmt.format(bal)}',
+                      Row(children: [
+                        Expanded(
+                            child: _summaryCard(
+                                'Total Money Added',
+                                '₹${fmt.format(_monthlyIncome)}',
+                                Icons.add_circle,
+                                Colors.green)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _summaryCard(
+                                'Current Balance',
+                                '₹${fmt.format(_totalBalance)}',
+                                Icons.account_balance_wallet,
+                                Colors.blue)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(
+                            child: _compactMetricAction(
+                                'Today',
+                                '₹${fmt.format(_todayExpense)}',
+                                Icons.today,
+                                Colors.orange)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _summaryCard(
+                                'Total Expenses',
+                                '₹${fmt.format(_monthlyExpense)}',
+                                Icons.remove_circle,
+                                Colors.red)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: _compactMetricAction(
+                                'This Month',
+                                '₹${fmt.format(_monthlyExpense)}',
+                                Icons.calendar_month,
+                                Colors.purple)),
+                      ]),
+                      const SizedBox(height: 16),
+                      if (_accounts.isNotEmpty) ...[
+                        Text('Accounts',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 10),
+                        Card(
+                            child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(children: [
+                                  ..._accounts.map((a) {
+                                    final bal =
+                                        (a['balance'] as num).toDouble();
+                                    return Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(a['name'] as String),
+                                              Text('₹${fmt.format(bal)}',
+                                                  style: TextStyle(
+                                                      color: bal >= 0
+                                                          ? Colors.green
+                                                          : Colors.red,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 14)),
+                                            ]));
+                                  }),
+                                ]))),
+                        const SizedBox(height: 16),
+                      ],
+                      if (false)
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                                colors: [
+                                  cs.primary,
+                                  cs.primary.withValues(alpha: 0.75)
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: cs.primary.withValues(alpha: 0.35),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8))
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(22),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Current Balance',
+                                          style: TextStyle(
+                                              color: cs.onPrimary
+                                                  .withValues(alpha: 0.8),
+                                              fontSize: 13,
+                                              letterSpacing: .5)),
+                                      Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.18),
+                                              borderRadius:
+                                                  BorderRadius.circular(20)),
+                                          child: Text(
+                                              DateFormat('MMM yyyy')
+                                                  .format(DateTime.now()),
                                               style: TextStyle(
-                                                  color: bal >= 0
-                                                      ? Colors.greenAccent
-                                                      : Colors.redAccent,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600)),
-                                        ]));
-                              }),
-                              const SizedBox(height: 14),
-                              const Divider(color: Colors.white24, height: 1),
-                              const SizedBox(height: 14),
-                              Row(children: [
-                                Expanded(
-                                    child: _miniStatBox(
-                                        cs,
-                                        'Total Money Added',
-                                        '₹${fmt.format(_monthlyIncome)}',
-                                        Colors.greenAccent)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                    child: _miniStatBox(
-                                        cs,
-                                        'Total Expenses',
-                                        '₹${fmt.format(_monthlyExpense)}',
-                                        Colors.redAccent)),
+                                                  color: cs.onPrimary,
+                                                  fontSize: 11))),
+                                    ]),
+                                const SizedBox(height: 6),
+                                Text('₹${fmt.format(_totalBalance)}',
+                                    style: TextStyle(
+                                        color: cs.onPrimary,
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: -0.5)),
+                                const SizedBox(height: 18),
+                                // Item 5: per-account balances
+                                ..._accounts.map((a) {
+                                  final bal = (a['balance'] as num).toDouble();
+                                  return Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(children: [
+                                              Container(
+                                                  width: 7,
+                                                  height: 7,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                          color: Colors.white54,
+                                                          shape:
+                                                              BoxShape.circle)),
+                                              const SizedBox(width: 7),
+                                              Text(a['name'] as String,
+                                                  style: TextStyle(
+                                                      color: cs.onPrimary
+                                                          .withValues(
+                                                              alpha: 0.85),
+                                                      fontSize: 12)),
+                                            ]),
+                                            Text('₹${fmt.format(bal)}',
+                                                style: TextStyle(
+                                                    color: bal >= 0
+                                                        ? Colors.greenAccent
+                                                        : Colors.redAccent,
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                          ]));
+                                }),
+                                const SizedBox(height: 14),
+                                const Divider(color: Colors.white24, height: 1),
+                                const SizedBox(height: 14),
+                                Row(children: [
+                                  Expanded(
+                                      child: _miniStatBox(
+                                          cs,
+                                          'Total Money Added',
+                                          '₹${fmt.format(_monthlyIncome)}',
+                                          Colors.greenAccent)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                      child: _miniStatBox(
+                                          cs,
+                                          'Total Expenses',
+                                          '₹${fmt.format(_monthlyExpense)}',
+                                          Colors.redAccent)),
+                                ]),
                               ]),
-                            ]),
-                      ),
+                        ),
                       const SizedBox(height: 16),
 
                       // ── Stat row ─────────────────────────────────────────────────────
-                      Row(children: [
-                        _statCard('Today', '₹${fmt.format(_todayExpense)}',
-                            Icons.today, Colors.orange),
-                        const SizedBox(width: 12),
-                        _statCard(
-                            'This Month',
-                            '₹${fmt.format(_monthlyExpense)}',
-                            Icons.calendar_month,
-                            Colors.purple),
-                      ]),
-                      const SizedBox(height: 20),
-
                       // ── Quick actions (item 7: Rules removed, item 15: no bottom FABs) ─
-                      Text('Quick Actions',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -241,14 +399,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               Colors.blue, AppRoutes.transfer),
                           _actionTile(context, Icons.bar_chart, 'Reports',
                               Colors.teal, AppRoutes.reports),
-                          _actionTile(context, Icons.account_balance_wallet,
-                              'Accounts', Colors.indigo, AppRoutes.accounts),
-                          _actionTile(context, Icons.category, 'Categories',
-                              Colors.pink, AppRoutes.categories),
-                          _actionTile(context, Icons.repeat, 'Recurring',
-                              Colors.orange, AppRoutes.recurring),
-                          _actionTile(context, Icons.savings, 'Budgets',
-                              Colors.teal, AppRoutes.budgets),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -295,11 +445,38 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(
                   color: cs.onPrimary.withValues(alpha: 0.7), fontSize: 11)),
           const SizedBox(height: 3),
-          Text(value,
+          Text(_fixRupee(value),
               style: TextStyle(
                   color: color, fontSize: 14, fontWeight: FontWeight.bold)),
         ]),
       );
+
+  Widget _summaryCard(String label, String value, IconData icon, Color color) =>
+      Card(
+          child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, color: color, size: 18),
+                    const SizedBox(height: 4),
+                    Text(label,
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.grey),
+                        maxLines: 2,
+                        softWrap: true),
+                    const SizedBox(height: 2),
+                    FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(_fixRupee(value),
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                                color: color,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14))),
+                  ])));
 
   Widget _statCard(String label, String value, IconData icon, Color color) =>
       Expanded(
@@ -320,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(label,
                               style: const TextStyle(
                                   fontSize: 11, color: Colors.grey)),
-                          Text(value,
+                          Text(_fixRupee(value),
                               style: const TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.bold))
                         ]),
