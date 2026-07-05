@@ -1,5 +1,6 @@
 import 'package:another_telephony/telephony.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
 import 'sms_parser.dart';
 
 /// Item 2: Automatic PhonePe/UPI SMS reading using telephony package
@@ -53,7 +54,7 @@ class SmsService {
       'date':        DateTime.now().toIso8601String(),
       'balance_after': newBal,
     });
-    onProcessed('${parsed['merchant']} ₹${parsed['amount']}');
+    onProcessed('${parsed['merchant']} ₹${formatMoneyWhole(parsed['amount'] as num)}');
   }
 
   /// Also read recent SMS on demand (last 50 PhonePe messages)

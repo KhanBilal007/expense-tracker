@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -66,7 +67,6 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs  = Theme.of(context).colorScheme;
-    final fmt = NumberFormat('#,##0.00');
     return Scaffold(
       appBar: AppBar(
         title: Text('Budgets — ${DateFormat('MMM yyyy').format(DateTime.now())}'),
@@ -120,11 +120,11 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Text('Spent: ₹${fmt.format(spent)}',
+                        Text('Spent: ₹${formatMoneyWhole(spent)}',
                             style: TextStyle(fontSize: 12, color: over ? Colors.red : Colors.grey.shade700)),
-                        Text('Remaining: ₹${fmt.format((limit - spent).clamp(0, double.infinity))}',
+                        Text('Remaining: ₹${formatMoneyWhole((limit - spent).clamp(0, double.infinity))}',
                             style: TextStyle(fontSize: 12, color: over ? Colors.red : Colors.green)),
-                        Text('Limit: ₹${fmt.format(limit)}',
+                        Text('Limit: ₹${formatMoneyWhole(limit)}',
                             style: const TextStyle(fontSize: 12, color: Colors.grey)),
                       ]),
                     ]),

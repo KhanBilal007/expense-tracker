@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../services/sheets_service.dart';
+import '../utils/money_formatter.dart';
 
 class TransferScreen extends StatefulWidget {
   const TransferScreen({super.key});
@@ -47,7 +47,7 @@ class _TransferScreenState extends State<TransferScreen> {
 
     final fromBal = (from['balance'] as num).toDouble();
     if (amount > fromBal) {
-      _snack('Insufficient balance in ${from['name']} (₹${fromBal.toStringAsFixed(2)})');
+      _snack('Insufficient balance in ${from['name']} (₹${formatMoneyWhole(fromBal)})');
       return;
     }
 
@@ -78,7 +78,6 @@ class _TransferScreenState extends State<TransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat('#,##0.00');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transfer Money'),
@@ -115,7 +114,7 @@ class _TransferScreenState extends State<TransferScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                     decoration: const InputDecoration(
-                      prefixText: '₹ ', hintText: '0.00', border: InputBorder.none,
+                          prefixText: '₹ ', hintText: '0', border: InputBorder.none,
                       prefixStyle: TextStyle(fontSize: 26, color: Colors.blue, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -135,7 +134,7 @@ class _TransferScreenState extends State<TransferScreen> {
                         value: a['id'] as int,
                         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Text(a['name'] as String),
-                          Text('₹${fmt.format(bal)}',
+                          Text('₹${formatMoneyWhole(bal)}',
                               style: TextStyle(
                                 color: bal >= 0 ? Colors.green : Colors.red,
                                 fontWeight: FontWeight.w500,
@@ -165,7 +164,7 @@ class _TransferScreenState extends State<TransferScreen> {
                         value: a['id'] as int,
                         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Text(a['name'] as String),
-                          Text('₹${fmt.format(bal)}',
+                          Text('₹${formatMoneyWhole(bal)}',
                               style: TextStyle(
                                 color: bal >= 0 ? Colors.green : Colors.red,
                                 fontWeight: FontWeight.w500,

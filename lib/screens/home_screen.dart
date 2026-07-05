@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../navigation/app_routes.dart';
+import '../utils/money_formatter.dart';
 
 class HomeScreen extends StatefulWidget {
   final List<String> recurringProcessed;
@@ -19,8 +20,11 @@ class _HomeScreenState extends State<HomeScreen> {
   double _todayExpense = 0;
   double _monthlyExpense = 0;
   double _monthlyIncome = 0;
+  double _accountSpent = 0;
   List<Map<String, dynamic>> _recent = [];
   List<Map<String, dynamic>> _accounts = [];
+  List<Map<String, dynamic>> _homeAccounts = [];
+  Map<int, Map<String, double>> _homeAccountSummaries = {};
   bool _loading = true;
 
   static const _bgTop = Color(0xFF071B35);
@@ -36,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _cyan = Color(0xFF20D7E8);
   static const _textMain = Colors.white;
   static const _textSub = Color(0xFFB8C2CF);
+  static const _aiIconAsset = 'assets/icons/ai_agent_option_2_icon.png';
 
   @override
   void initState() {
@@ -57,28 +62,43 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final month = DateFormat('yyyy-MM').format(DateTime.now());
-      final balance = await _db.getTotalBalance();
-      final today = await _db.getTodayExpense();
-      final mExp = await _db.getMonthlyExpense(month);
-      final mInc = await _db.getMonthlyIncome(month);
       final recent = await _db.getTransactions(limit: 5);
       final accounts = await _db.getAccounts();
+      final homeAccounts = await _db.getHomeAccounts();
+      final summaries = <int, Map<String, double>>{};
+      double selectedCurrentBalance = 0;
+      double selectedTotalMoneyAdded = 0;
+      double selectedSpent = 0;
+      double selectedTodayExpenses = 0;
+      double selectedThisMonthExpenses = 0;
+      for (final account in homeAccounts) {
+        final id = account['id'] as int;
+        final summary = await _db.getAccountSummary(id);
+        summaries[id] = summary;
+        selectedCurrentBalance += summary['currentBalance'] ?? 0;
+        selectedTotalMoneyAdded += summary['totalMoneyAdded'] ?? 0;
+        selectedSpent += summary['spent'] ?? 0;
+        selectedTodayExpenses += summary['todayExpenses'] ?? 0;
+        selectedThisMonthExpenses += summary['thisMonthExpenses'] ?? 0;
+      }
       if (!mounted) return;
       setState(() {
-        _totalBalance = balance;
-        _todayExpense = today;
-        _monthlyExpense = mExp;
-        _monthlyIncome = mInc;
+        _totalBalance = selectedCurrentBalance;
+        _todayExpense = selectedTodayExpenses;
+        _monthlyExpense = selectedThisMonthExpenses;
+        _monthlyIncome = selectedTotalMoneyAdded;
+        _accountSpent = selectedSpent;
         _recent = recent;
         _accounts = accounts;
+        _homeAccounts = homeAccounts;
+        _homeAccountSummaries = summaries;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _money(num value) => '₹${NumberFormat('#,##0').format(value)}';
+  String _money(num value) => '₹${formatMoneyWhole(value)}';
 
   Color _txColor(String t) => (t == 'income' || t == 'transfer_in')
       ? _green
@@ -123,13 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               _header(context),
                               const SizedBox(height: 2),
-                              _sectionHeader(
-                                title: 'Accounts',
-                                action: 'View All',
-                                onTap: () => Navigator.pushNamed(
-                                        context, AppRoutes.accounts)
-                                    .then((_) => _load()),
-                              ),
+                              _accountsHeader(),
                               const SizedBox(height: 4),
                               _accountsSection(),
                               const SizedBox(height: 6),
@@ -173,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Expanded(
                                     child: _miniCard(
                                       title: 'Expenses',
-                                      amount: _money(_monthlyExpense),
+                                      amount: _money(_accountSpent),
                                       icon: Icons.remove_circle_rounded,
                                       color: _red,
                                     ),
@@ -309,8 +323,154 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _accountsHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text('Accounts',
+            style: TextStyle(
+                color: _textMain, fontSize: 19, fontWeight: FontWeight.w800)),
+        GestureDetector(
+          onTap: _chooseHomeAccounts,
+          child: const Row(
+            children: [
+              Icon(Icons.edit_rounded, color: _blue, size: 16),
+              SizedBox(width: 3),
+              Text('Choose',
+                  style: TextStyle(
+                      color: _blue,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _chooseHomeAccounts() async {
+    if (_accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No accounts yet')),
+      );
+      return;
+    }
+
+    final selectedIds = _homeAccounts
+        .map((a) => a['id'] as int?)
+        .whereType<int>()
+        .take(2)
+        .toList();
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: _card2,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Choose Home Accounts',
+                            style: TextStyle(
+                                color: _textMain,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _accounts.length,
+                        itemBuilder: (_, i) {
+                          final account = _accounts[i];
+                          final id = account['id'] as int;
+                          final selected = selectedIds.contains(id);
+                          return CheckboxListTile(
+                            value: selected,
+                            dense: true,
+                            activeColor: _blue,
+                            checkColor: _textMain,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              account['name']?.toString() ?? 'Account',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: _textMain,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(
+                              _money((account['balance'] as num?) ?? 0),
+                              style: const TextStyle(color: _textSub),
+                            ),
+                            onChanged: (_) {
+                              if (selected) {
+                                setSheetState(() => selectedIds.remove(id));
+                                return;
+                              }
+                              if (selectedIds.length >= 2) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'You can show maximum 2 accounts on Home.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setSheetState(() => selectedIds.add(id));
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () async {
+                          await _db.setHomeAccounts(selectedIds);
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop(true);
+                          }
+                        },
+                        child: const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == true && mounted) {
+      await _load();
+    }
+  }
+
   Widget _accountsSection() {
-    final shown = _accounts.take(2).toList();
+    final shown = _homeAccounts.take(2).toList();
     if (shown.isEmpty) {
       return _glassCard(
         height: 90,
@@ -337,7 +497,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _accountRow(Map<String, dynamic> account, Color color) {
-    final bal = (account['balance'] as num?)?.toDouble() ?? 0;
+    final accountId = account['id'] as int?;
+    final summary =
+        accountId == null ? null : _homeAccountSummaries[accountId];
+    final bal = summary?['currentBalance'] ??
+        (account['balance'] as num?)?.toDouble() ??
+        0;
     final name = account['name']?.toString() ?? 'Account';
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -643,11 +808,12 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _navItem(Icons.home_rounded, 'Home', _blue, () {}),
           _navItem(
-              Icons.remove_circle_rounded,
-              'Add Expense',
+              Icons.smart_toy_outlined,
+              'AI',
               _textSub,
-              () => Navigator.pushNamed(context, AppRoutes.addExpense)
-                  .then((_) => _load())),
+              () => Navigator.pushNamed(context, AppRoutes.ai)
+                  .then((_) => _load()),
+              assetPath: _aiIconAsset),
           _navItem(Icons.sync_rounded, 'Sync', _textSub, () => _load()),
         ],
       ),
@@ -655,7 +821,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _navItem(
-      IconData icon, String label, Color color, VoidCallback onTap) {
+      IconData icon, String label, Color color, VoidCallback onTap,
+      {String? assetPath}) {
     final active = color == _blue;
     return InkWell(
       onTap: onTap,
@@ -675,7 +842,17 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 26),
+            if (assetPath == null)
+              Icon(icon, color: color, size: 26)
+            else
+              Image.asset(
+                assetPath,
+                width: 26,
+                height: 26,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    Icon(icon, color: color, size: 26),
+              ),
             const SizedBox(height: 5),
             Text(label,
                 maxLines: 1,

@@ -10,6 +10,7 @@ import 'screens/accounts_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/transactions_screen.dart';
 import 'screens/reports_screen.dart';
+import 'screens/ai_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/budgets_screen.dart';
 import 'screens/recurring_screen.dart';
@@ -70,6 +71,7 @@ class _ExpenseAppState extends State<ExpenseApp> {
         AppRoutes.categories:   (_) => const CategoriesScreen(),
         AppRoutes.transactions: (_) => const TransactionsScreen(),
         AppRoutes.reports:      (_) => const ReportsScreen(),
+        AppRoutes.ai:           (_) => const AiScreen(),
         AppRoutes.settings:     (_) => const SettingsScreen(),
         AppRoutes.budgets:      (_) => const BudgetsScreen(),
         AppRoutes.recurring:    (_) => const RecurringScreen(),

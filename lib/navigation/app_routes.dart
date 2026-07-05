@@ -6,6 +6,7 @@ class AppRoutes {
   static const categories   = '/categories';
   static const transactions = '/transactions';
   static const reports      = '/reports';
+  static const ai           = '/ai';
   static const settings     = '/settings';
   static const budgets      = '/budgets';
   static const recurring    = '/recurring';

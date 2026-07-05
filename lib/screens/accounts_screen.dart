@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -20,80 +20,125 @@ class _AccountsScreenState extends State<AccountsScreen> {
     if (mounted) setState(() => _accounts = a);
   }
 
-  // FIX #25: opening balance distinct label
-  void _addDialog() {
-    final nameCtrl = TextEditingController();
-    final balCtrl  = TextEditingController();
-    showDialog(
+// FIX #25: opening balance distinct label
+Future<void> _addDialog() async {
+  final nameCtrl = TextEditingController();
+  final balCtrl = TextEditingController();
+
+  try {
+    final added = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Add Account'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Account Name (e.g. Cash, SBI Bank)')),
-          const SizedBox(height: 8),
-          TextField(controller: balCtrl,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add Account'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Account Name (e.g. Cash, SBI Bank)',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: balCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                  labelText: 'Opening Balance', prefixText: '₹ ',
-                  helperText: 'Current balance in this account')),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              if (name.isEmpty) return;
-              final bal = double.tryParse(balCtrl.text.trim()) ?? 0.0;
-              await _db.insertAccount(name, bal);
-              if (context.mounted) Navigator.pop(context);
-              _load();
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    ).then((_) { nameCtrl.dispose(); balCtrl.dispose(); }); // FIX #35: dispose controllers
-  }
+                labelText: 'Opening Balance',
+                prefixText: '₹ ',
+                helperText: 'Current balance in this account',
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
 
-  // FIX #22: edit account name
-  void _editDialog(Map<String, dynamic> account) {
-    final ctrl = TextEditingController(text: account['name'] as String);
-    showDialog(
+                final bal = double.tryParse(balCtrl.text.trim()) ?? 0.0;
+                await _db.insertAccount(name, bal);
+
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (added == true) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      await _load();
+    }
+  } finally {
+    nameCtrl.dispose();
+    balCtrl.dispose();
+  }
+}
+
+// FIX #22: edit account name
+Future<void> _editDialog(Map<String, dynamic> account) async {
+  final ctrl = TextEditingController(text: account['name'] as String);
+
+  try {
+    final updated = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Account'),
-        content: TextField(controller: ctrl,
-            decoration: const InputDecoration(labelText: 'Account Name')),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Account Name'),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final name = ctrl.text.trim();
               if (name.isEmpty) return;
+
               await _db.updateAccount(account['id'] as int, name);
-              if (context.mounted) Navigator.pop(context);
-              _load();
+
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pop(true);
             },
             child: const Text('Save'),
           ),
         ],
       ),
-    ).then((_) => ctrl.dispose());
+    );
+
+    if (updated == true && mounted) {
+      await _load();
+    }
+  } finally {
+    ctrl.dispose();
   }
+}
 
   // FIX #2: show error if account has transactions
   Future<void> _delete(Map<String, dynamic> account) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Account?'),
         content: Text('Delete "${account['name']}"? This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
         ],
@@ -101,18 +146,20 @@ class _AccountsScreenState extends State<AccountsScreen> {
     );
     if (confirmed != true) return;
     final deleted = await _db.deleteAccount(account['id'] as int);
-    if (!deleted && mounted) {
+    if (!mounted) return;
+    if (!deleted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Cannot delete: account has transactions'),
           backgroundColor: Colors.orange));
     }
-    _load();
+    if (deleted) {
+      await _load();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cs  = Theme.of(context).colorScheme;
-    final fmt = NumberFormat('#,##0.00');
     return Scaffold(
       appBar: AppBar(title: const Text('Accounts'), backgroundColor: cs.primary, foregroundColor: cs.onPrimary),
       body: _accounts.isEmpty
@@ -124,23 +171,59 @@ class _AccountsScreenState extends State<AccountsScreen> {
               itemBuilder: (_, i) {
                 final a   = _accounts[i];
                 final bal = (a['balance'] as num).toDouble();
+                final name = a['name'] as String;
                 return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: cs.primary.withValues(alpha: 0.1),
-                      child: Icon(Icons.account_balance_wallet, color: cs.primary),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: cs.primary.withValues(alpha: 0.1),
+                          child: Icon(Icons.account_balance_wallet,
+                              color: cs.primary),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              Text('Balance',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 110),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text('₹${formatMoneyWhole(bal)}',
+                                style: TextStyle(
+                                    color: bal >= 0
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
+                          ),
+                        ),
+                        IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            onPressed: () => _editDialog(a)),
+                        IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.red, size: 18),
+                            onPressed: () => _delete(a)),
+                      ],
                     ),
-                    title: Text(a['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Balance', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('₹${fmt.format(bal)}',
-                          style: TextStyle(color: bal >= 0 ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold, fontSize: 15)),
-                      IconButton(icon: const Icon(Icons.edit_outlined, size: 18),
-                          onPressed: () => _editDialog(a)),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                          onPressed: () => _delete(a)),
-                    ]),
                   ),
                 );
               }),

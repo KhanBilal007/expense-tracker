@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
 
 class RecurringScreen extends StatefulWidget {
   const RecurringScreen({super.key});
@@ -130,7 +131,6 @@ class _RecurringScreenState extends State<RecurringScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat('#,##0.00');
     return Scaffold(
       appBar: AppBar(title: const Text('Recurring Payments'),
           backgroundColor: Colors.orange, foregroundColor: Colors.white),
@@ -164,7 +164,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
                       ),
                     ]),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('₹${fmt.format(r['amount'])}',
+                      Text('₹${formatMoneyWhole(r['amount'] as num)}',
                           style: const TextStyle(fontWeight: FontWeight.bold)),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),

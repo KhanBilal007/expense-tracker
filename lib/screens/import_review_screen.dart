@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/phonepe_statement_parser.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
 
 class ImportResult {
   final int savedCount;
@@ -35,7 +36,6 @@ class _ImportReviewScreenState extends State<ImportReviewScreen> {
   late int _selectedAccountId;
   String _selectedAccountName = '';
   final _db = DatabaseHelper();
-  final _fmt = NumberFormat('#,##0.00');
 
   @override
   void initState() {
@@ -181,7 +181,7 @@ class _ImportReviewScreenState extends State<ImportReviewScreen> {
                                       fontWeight: FontWeight.w500),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis)),
-                          Text('${isExp ? '−' : '+'}₹${_fmt.format(t.amount)}',
+                          Text('${isExp ? '−' : '+'}₹${formatMoneyWhole(t.amount)}',
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,

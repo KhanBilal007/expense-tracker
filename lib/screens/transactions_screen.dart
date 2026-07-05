@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../services/downloads_scanner_service.dart';
 import '../services/phonepe_statement_parser.dart';
-import 'import_review_screen.dart';
+import '../utils/money_formatter.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -299,7 +299,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           '[TransactionsScreen] New: ${newTxns.length}, skipped duplicates: $skippedCount');
 
       if (newTxns.isEmpty) {
-        _snack('No new transactions found', error: false);
+        _snack(
+            'No new transactions found. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.',
+            error: false);
         return;
       }
 
@@ -324,26 +326,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       debugPrint(
           '[TransactionsScreen] PhonePe import account selected: $selectedAccountName ($accountId)');
 
-      if (!mounted) return;
       debugPrint(
-          '[TransactionsScreen] Opening review screen with ${newTxns.length} new transaction(s)...');
-      final result = await Navigator.of(context).push<ImportResult>(
-        MaterialPageRoute(
-          builder: (_) => ImportReviewScreen(
-            newTransactions: newTxns,
-            skippedDuplicateCount: skippedCount,
-            accountId: accountId,
-          ),
-        ),
+          '[TransactionsScreen] Auto-importing ${newTxns.length} new transaction(s)...');
+      final savedCount = await _db.insertPhonePeTransactions(
+        newTxns.map((t) => t.toMap()).toList(),
+        accountId: accountId,
       );
-      debugPrint('[TransactionsScreen] Review screen closed. Result: $result');
+      debugPrint('[TransactionsScreen] Auto-import saved count=$savedCount');
 
-      if (result != null && result.savedCount > 0) {
+      if (savedCount > 0) {
         await _load(); // refresh transaction list, newest first (already sorted by DB query)
-        _snack(
-            'Imported ${result.savedCount} new transaction${result.savedCount == 1 ? '' : 's'}'
-            '${result.skippedCount > 0 ? '. Skipped ${result.skippedCount} duplicate${result.skippedCount == 1 ? '' : 's'}' : ''}');
       }
+      _snack(
+          'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.');
     } finally {
       if (mounted) setState(() => _syncing = false);
       debugPrint('[TransactionsScreen] ===== Sync PhonePe flow finished =====');
@@ -456,10 +451,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     ));
   }
 
+  String _formatTransactionAmount(num amount) {
+    return formatMoneyWhole(amount.toDouble().abs());
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fmt = NumberFormat('#,##0.00');
     final filtersActive = _filterType != 'all' ||
         _filterAccount != null ||
         _filterCategory != null ||
@@ -534,17 +532,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final date =
                     DateTime.tryParse(t['date'] ?? '') ?? DateTime.now();
                 final txId = t['id'] as int?;
-                final rawDesc = t['description']?.toString();
+                final rawDesc = t['description']?.toString().trim();
+                final hasDescription = rawDesc != null && rawDesc.isNotEmpty;
                 final desc = _resetTransactionIds.contains(txId)
                     ? 'Balance Reset'
-                    : type == 'income'
-                        ? 'Money Added'
-                        : type == 'expense'
-                            ? 'Expense'
-                            : rawDesc?.isNotEmpty == true
-                                ? rawDesc!
-                                : (t['category_name'] as String? ??
-                                    'Transaction');
+                    : hasDescription
+                        ? rawDesc!
+                        : 'Undescribed';
                 final cat = t['category_name'] as String?;
                 return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4),
@@ -571,9 +565,19 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                     fontSize: 11, color: Colors.grey)),
                           ]),
                       // item 10: NO delete button
-                      trailing: Text('$sign₹${fmt.format(displayAmount)}',
-                          style: TextStyle(
-                              color: col, fontWeight: FontWeight.bold)),
+                      trailing: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 150),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                              '$sign₹${_formatTransactionAmount(displayAmount)}',
+                              style: TextStyle(
+                                  color: col,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ),
                     ));
               }),
     );

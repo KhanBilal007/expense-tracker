@@ -1,0 +1,482 @@
+# Thread Reports
+
+## 2026-07-05 - Point 40 AI Agent Intelligence
+
+Role: AI Agent Engineer
+
+Scope:
+
+- Patched `lib/screens/ai_screen.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Improved local intent detection for current account balance, account balance sums, balance on date, today expense, this month expense, account spent, account money added, account summary, transaction search, app help, clarification, and unsupported questions.
+- Added read-only `searchTransactionsForAi(...)` for deterministic transaction lookup.
+- Reused existing read-only backend methods for balances, expenses, money added, spent, account summaries, and date balances.
+- Expanded app-help answers for add account, add expense, add money, transfer, PDF sync, reports, reset by date, reset by amount, Home account selection, and AI tab usage.
+- Added clearer clarification responses for ambiguous account names, missing accounts, and missing dates.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask: `balance of Mahmood Bhai`, `what is balance in Mahmood`, `how much money in idris`, `sum balance of Mahmood Bhai and idris`, `today expense`, `this month expense`, `money added to Mahmood`, `spent from Mahmood`, `balance of Mahmood on 5 July`, `what was balance on 05/07/2026`, `transactions for Mahmood`, and app-help questions.
+
+App code status:
+
+- AI remains read-only.
+- No external AI/API key was added.
+- Home, Transactions, Reports, Accounts, Sync UI, PDF sync, stored data, and write flows were not changed.
+
+## 2026-07-05 - Point 39 AI Agent Icon
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `pubspec.yaml`.
+- Patched `lib/screens/ai_screen.dart`.
+- Patched `lib/screens/home_screen.dart`.
+- Registered `assets/icons/ai_agent_option_2_icon.png`.
+- Used the selected Option 2 AI Agent icon in the AI Assistant app bar.
+- Used the selected icon in the Home bottom navigation AI item with a compact size.
+- Preserved fallback Material robot icons for asset-load safety.
+
+Verification for user:
+
+- Place `ai_agent_option_2_icon_1024.png` at `assets/icons/ai_agent_option_2_icon.png`.
+- Run `flutter pub get`.
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Confirm the AI bottom nav item shows the selected icon.
+- Open AI tab and confirm the AI Assistant app bar shows the selected icon.
+
+App code status:
+
+- AI logic, finance calculations, Home/Transactions/Reports/Accounts/Sync logic, and Expense feature were not changed.
+
+## 2026-07-05 - Points 22 + 23 + 24 AI Finance Data Answers
+
+Role: Backend + Frontend Engineer
+
+Scope:
+
+- Patched `lib/db/database_helper.dart`.
+- Patched `lib/screens/ai_screen.dart`.
+- Added deterministic read-only backend query helpers for account name lookup, account balance sums, account balance on date, today expense, this month expense, total spent, and total money added.
+- Replaced the AI finance placeholder with local intent handling for supported finance questions.
+- Kept existing app-help answers.
+- Kept AI read-only with no create, update, delete, reset, sync, external API, or API key support.
+- Kept visible money answers as whole rupees only.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Open AI tab and ask: `balance of Cash`, `sum balance of Cash and Bank`, `balance of Cash on 5 July`, `today expense`, `this month expense`, `spent from Cash`, and `money added to Cash`.
+- Confirm unsupported questions answer: `I can answer balances, expenses, money added, and app-help questions for now.`
+
+App code status:
+
+- Home, Transactions, Reports, Accounts, Sync UI, stored transactions, database schema, and calculations outside read-only query helpers were not changed.
+
+## 2026-07-05 - Points 21 + 25 AI Bottom Tab
+
+Role: Frontend Engineer
+
+Scope:
+
+- Added `lib/screens/ai_screen.dart`.
+- Updated `lib/navigation/app_routes.dart`.
+- Updated `lib/main.dart` route registration.
+- Updated `lib/screens/home_screen.dart` bottom navigation.
+- Replaced only the bottom-nav `Add Expense` item with `AI`.
+- Preserved Add Expense route/screen and existing Expense feature.
+- Added local built-in app-help responses and finance-data placeholder.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Tap AI in the bottom navigation and confirm AI Assistant opens.
+- Tap suggested chips and confirm local responses appear.
+- Confirm Add Expense still works from existing non-bottom-nav entry points.
+
+App code status:
+
+- No backend AI query service was added.
+- Transactions, Reports, Accounts, PDF sync, calculations, and unrelated app parts were not changed.
+
+## 2026-07-05 - Point 35 Decimal Display Decision
+
+Role: Project Architect / Documentation
+
+Scope:
+
+- Updated shared documentation only.
+- Recorded that visible app amounts should show no decimals anywhere in the UI.
+- Clarified that internal technical decimal values remain unchanged when needed.
+- Explicitly preserved dedupe-key formatting, imported transaction IDs/dedupe IDs, timestamps, parser values, and internal matching values.
+
+App code status:
+
+- No app code changed.
+- No database, parser, reports, or internal duplicate-detection code changed.
+
+## 2026-07-05 - Points 37 + 38 Shared Balance and Expense Summary
+
+Role: Backend + Frontend Bug Fix Engineer
+
+Scope:
+
+- Patched `lib/db/database_helper.dart`.
+- Patched `lib/screens/home_screen.dart`.
+- Reused the existing Reports call to `getAccountSummary(...)`.
+- Expanded `getAccountSummary(int accountId)` to include `spent`, `todayExpenses`, and `thisMonthExpenses`.
+- Updated Home to use the shared summary for Total Money Added, Expenses, Today, This Month, Current Balance, and selected account card balances.
+- Kept Reports summary values on the same shared backend method.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Compare Home and Reports for the same selected account.
+- Confirm Home Expenses/Spent and Current Balance now match the shared backend/report calculation.
+- Confirm Today only counts today and This Month only counts the current month.
+
+App code status:
+
+- Stored data, transaction amounts, PDF sync, Transactions UI, Accounts UI, AI tab, and unrelated screens were not changed.
+- Visible money formatting remains whole rupees only.
+
+## 2026-07-05 - Point 37 Home and Reports Shared Account Summary
+
+Role: Backend + Frontend Bug Fix Engineer
+
+Scope:
+
+- Patched `lib/db/database_helper.dart`.
+- Patched `lib/screens/home_screen.dart`.
+- Patched `lib/screens/reports_screen.dart`.
+- Added shared `getAccountSummary(int accountId)` backend calculation.
+- Updated Home to use shared summaries for selected Home account current balance and total money added.
+- Updated Reports to use the same shared summary for Available Funds, Spent, and Current Balance.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Select the same account on Home and Reports and compare current balance.
+- Confirm Home Total Money Added reflects all income/add-money transactions, not only the current month.
+
+App code status:
+
+- Stored data, transaction amounts, calculations outside the shared summary, PDF sync, Transactions UI, Accounts UI, AI tab, and unrelated screens were not changed.
+
+## 2026-07-05 - Point 35 Whole-Rupee Money Display
+
+Role: Frontend Engineer
+
+Scope:
+
+- Added `lib/utils/money_formatter.dart`.
+- Updated visible money display across Home, Accounts, Transactions, Reports, reset messages, account pickers, import review, Budgets, Recurring, Add Expense, Add Money, Transfer, and SMS processed display.
+- Replaced visible decimal amount formatters with `formatMoneyWhole(...)`.
+- Updated visible amount input hints from `0.00` to `0`.
+- Left database/parser dedupe-key decimal formatting untouched because it is not visible UI.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Check all visible money values show whole rupees only.
+- Confirm stored decimal values and calculations remain unchanged.
+
+App code status:
+
+- Display formatting only.
+- No database schema, stored values, imported values, calculations, transaction logic, labels, or unrelated UI were changed.
+
+## 2026-07-05 - Point 35 Remove Trailing .00 From Money
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched visible amount formatting in Home-related/account flow screens, Accounts, Transactions-adjacent import review, Reports, Budgets, Recurring, and Transfer/Add screens.
+- Replaced visible `NumberFormat('#,##0.00')` with `NumberFormat('#,##0.##')`.
+- Replaced visible insufficient-balance `toStringAsFixed(2)` messages with `NumberFormat('#,##0.##')`.
+- Left non-visible dedupe-key `toStringAsFixed(2)` usage untouched.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Check visible whole-number amounts across Home, Accounts, Transactions, Reports, Budgets, Recurring, Add Expense, Add Money, and Transfer.
+- Confirm real decimal values still show decimal digits.
+
+App code status:
+
+- Display formatting only.
+- No stored values, calculations, database logic, labels, layout redesign, or unrelated app behavior changed.
+
+## 2026-07-05 - Points 18 + 19 + 20 Reports Reset Choice
+
+Role: Backend + Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/reports_screen.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Added a reset choice dialog with `Reset by Date` and `Reset by Amount`.
+- Preserved existing Reset by Amount behavior.
+- Added Reset by Date date picker, confirmation, recalculation, and result message.
+- Added database helpers to preview and apply account balance recalculation through a selected date.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- In Reports, select an account, tap Reset, and verify Date/Amount options appear first.
+- Test Reset by Amount still starts the existing transaction-tap flow.
+- Test Reset by Date confirms and recalculates without deleting transactions.
+
+App code status:
+
+- Only `lib/screens/reports_screen.dart` and `lib/db/database_helper.dart` were changed.
+- Home, Accounts, Transactions, Sync, AI tab, expense/transfer logic outside reset calculation, and unrelated app parts were not changed.
+
+## 2026-07-05 - Point 33 Remove Home Accounts View All
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart`.
+- Removed only the `View All` text/action from the Home Accounts section.
+- Kept account cards and Home account selection logic unchanged.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Open Home and confirm Accounts no longer shows `View All`.
+- Confirm accounts still display and `Choose` still works.
+
+App code status:
+
+- Only `lib/screens/home_screen.dart` was changed.
+- No backend/database, account balance logic, Transactions, Reports, Accounts screen, Sync, AI tab, or unrelated UI changes were made.
+
+## 2026-07-05 - Point 31 Add Account Lifecycle Crash
+
+Role: Bug Fix Engineer
+
+Scope:
+
+- Patched `lib/screens/accounts_screen.dart`.
+- Focused only on `_addDialog()`.
+- Kept Add Account Cancel and Add actions on the local dialog builder context.
+- Kept `_load()` out of the Add button callback.
+- Added a post-dialog `WidgetsBinding.instance.endOfFrame` wait before refreshing the parent Accounts list.
+- Kept controller disposal in `finally` after `showDialog` completes.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Open Accounts, tap `+`, Cancel, then open again and Add an account.
+- Confirm the dialog closes, the account appears, and no red screen appears.
+
+App code status:
+
+- Only `lib/screens/accounts_screen.dart` was changed.
+- No database logic, balances, calculations, Home, Transactions, Reports, Sync, AI tab, or unrelated app parts were changed.
+
+## 2026-07-05 - Point 31 Edit Account Cancel Lifecycle
+
+Role: Bug Fix Engineer
+
+Scope:
+
+- Re-inspected `lib/screens/accounts_screen.dart`.
+- Confirmed Edit Account Cancel closes using `Navigator.of(dialogContext).pop(false)`.
+- Confirmed parent screen `context` is not used inside Edit Account dialog buttons.
+- Confirmed `_load()` runs only after `showDialog` returns `true` from Save.
+- Confirmed Add Account and Delete confirmation dialogs also use dialog builder context for Cancel/close actions.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Open Accounts, tap edit, tap Cancel, and confirm no red screen appears.
+
+App code status:
+
+- No additional app code change was needed because the safe dialog-context pattern was already present in `lib/screens/accounts_screen.dart`.
+- No database logic, balances, routes, Home, Transactions, Reports, PDF sync, AI tab, or unrelated app parts were changed.
+
+## 2026-07-05 - Points 31 + 32 Accounts Lifecycle and Row Layout
+
+Role: Bug Fix Engineer
+
+Scope:
+
+- Patched `lib/screens/accounts_screen.dart`.
+- Updated delete confirmation dialog to use the dialog builder context for closing.
+- Kept add/edit account dialogs on the safe result-after-dialog pattern with controller disposal in `finally`.
+- Added mounted guarding after async delete before using screen context or refreshing.
+- Replaced the account row `ListTile`/large trailing row with a controlled `Row` layout.
+- Constrained account names to one line with ellipsis and kept amount/actions visible.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Add, edit, and delete accounts and confirm no lifecycle red screen appears.
+- Confirm long account names stay on one line and truncate with ellipsis.
+
+App code status:
+
+- Only `lib/screens/accounts_screen.dart` was changed.
+- No database logic, balance calculations, routes, Home, Transactions, Reports, PDF sync, AI tab, or unrelated app parts were changed.
+
+## 2026-07-05 - Points 15 + 16 + 17 Home Account Selection
+
+Role: Backend + Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Added persisted Home account selection with maximum 2 accounts.
+- Added a compact `Choose` action in the Home Accounts header.
+- Added a bottom sheet to select Home accounts from all accounts.
+- Preserved the existing fallback of first 2 accounts when no selection exists.
+- Safely ignores deleted selected accounts because `home_order` lives on account rows.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Select 2 Home accounts, restart the app, and confirm the same 2 accounts remain displayed.
+- Try selecting a third account and confirm the max-2 message appears.
+
+App code status:
+
+- Only `lib/screens/home_screen.dart` and `lib/db/database_helper.dart` were changed.
+- No account balance calculations, expense/transfer logic, Transactions, Reports, PDF import, AI tab, bottom navigation, or unrelated app parts were changed.
+
+## 2026-07-05 - Points 12 + 13 + 30 PhonePe Auto Sync
+
+Role: Backend + Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/transactions_screen.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Removed manual review navigation from the Transactions tab Sync flow.
+- Reused the existing Downloads scanner, PhonePe parser, dedupe-key filtering, and database insert method.
+- Added direct auto-import for all new valid transactions.
+- Added simple Sync result SnackBar messages with imported and duplicate-skipped counts.
+- Ensured unclear imported categories resolve to `Uncategorized`, creating that category if missing.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Tap the existing Sync button from Transactions and confirm no review screen, checkboxes, or Import Selected button appears.
+- Confirm new transactions are saved, duplicates are skipped, and All Transactions refreshes.
+
+App code status:
+
+- Only `lib/screens/transactions_screen.dart` and `lib/db/database_helper.dart` were changed.
+- `ImportReviewScreen` was not deleted.
+- No Home, Reports, Accounts, AI tab, bottom navigation, transaction calculations, duplicate detection, or database schema changes were made.
+
+## 2026-07-05 - All Transactions Amount and Title Display
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/transactions_screen.dart`.
+- Removed trailing `.00` from whole-number transaction amounts.
+- Replaced the `Money Added` title behavior with transaction description display.
+- Added `Undescribed` as the title fallback for transactions without a description.
+- Preserved `Balance Reset` titles, amount sign/color behavior, account/date subtitle, transaction logic, database logic, and calculations.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Manually review whole-number amounts, income transaction titles, missing descriptions, and balance reset rows.
+
+App code status:
+
+- Only the All Transactions amount/title display was changed.
+- No transaction/database logic or unrelated UI was changed.
+
+## 2026-07-05 - All Transactions Amount Readability
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/transactions_screen.dart`.
+- Increased only the All Transactions row amount font size.
+- Added a width constraint and scale-down behavior for long amount values.
+- Preserved labels, dates, descriptions, transaction logic, database logic, and calculations.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Manually review All Transactions rows with short and long amounts.
+
+App code status:
+
+- Only the transaction amount display was changed.
+- No transaction/database logic or unrelated UI was changed.
+
+## 2026-07-05 - First Account Creation Crash Fix
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/accounts_screen.dart`.
+- Updated add/edit account dialogs to use the dialog builder context when closing.
+- Moved account refresh to after successful dialog completion.
+- Preserved existing UI appearance and account/database behavior.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Manually test first account creation, second account creation, and account rename.
+
+App code status:
+
+- Only `lib/screens/accounts_screen.dart` was changed.
+- No UI redesign, database logic, account balance calculations, or unrelated navigation changes were made.
+
+## 2026-07-05 - Project Tracking Baseline
+
+Role: Project Architect / Tech Lead
+
+Scope:
+
+- Created shared project tracking files.
+- Recorded confirmed project decisions.
+- Recorded the current project baseline.
+- Added known TODO items.
+- Updated changelog.
+
+Verification requested:
+
+- `flutter pub get`
+- `flutter analyze`
+
+App code status:
+
+- No app code changed.
+- No UI, navigation, calculations, routes, database schema, or business logic changed.

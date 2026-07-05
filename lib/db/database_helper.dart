@@ -18,12 +18,12 @@ class DatabaseHelper {
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'expense_v4.db');
     return openDatabase(path,
-        version: 6, onCreate: _onCreate, onUpgrade: _onUpgrade);
+        version: 7, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int v) async {
     await db.execute(
-        '''CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, balance REAL DEFAULT 0)''');
+        '''CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, balance REAL DEFAULT 0, home_order INTEGER)''');
     await db.execute(
         '''CREATE TABLE categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)''');
     await db.execute(
@@ -77,6 +77,13 @@ class DatabaseHelper {
       await db.execute(
           'CREATE UNIQUE INDEX IF NOT EXISTS idx_dedupe_key ON transactions(dedupe_key)');
     }
+    if (oldV < 7) {
+      final info = await db.rawQuery("PRAGMA table_info(accounts)");
+      final cols = info.map((r) => r['name'] as String).toSet();
+      if (!cols.contains('home_order')) {
+        await db.execute("ALTER TABLE accounts ADD COLUMN home_order INTEGER");
+      }
+    }
   }
 
   Future<int?> getDefaultAccountId() async =>
@@ -119,6 +126,35 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getAccounts() async =>
       (await database).query('accounts', orderBy: 'name ASC');
+  Future<List<Map<String, dynamic>>> getHomeAccounts() async {
+    final db = await database;
+    final selected = await db.query(
+      'accounts',
+      where: 'home_order IS NOT NULL',
+      orderBy: 'home_order ASC',
+      limit: 2,
+    );
+    if (selected.isNotEmpty) return selected;
+
+    return db.query('accounts', orderBy: 'name ASC', limit: 2);
+  }
+
+  Future<void> setHomeAccounts(List<int> accountIds) async {
+    final db = await database;
+    final selectedIds = accountIds.take(2).toList();
+    await db.transaction((txn) async {
+      await txn.update('accounts', {'home_order': null});
+      for (var i = 0; i < selectedIds.length; i++) {
+        await txn.update(
+          'accounts',
+          {'home_order': i},
+          where: 'id=?',
+          whereArgs: [selectedIds[i]],
+        );
+      }
+    });
+  }
+
   Future<Map<String, dynamic>?> getAccountById(int id) async {
     final r = await (await database)
         .query('accounts', where: 'id=?', whereArgs: [id]);
@@ -187,6 +223,62 @@ class DatabaseHelper {
         args);
   }
 
+  Future<List<Map<String, dynamic>>> searchTransactionsForAi({
+    String? query,
+    String? type,
+    int? accountId,
+    DateTime? from,
+    DateTime? to,
+    int limit = 5,
+  }) async {
+    final db = await database;
+    final wheres = <String>[];
+    final args = <dynamic>[];
+
+    if (accountId != null) {
+      wheres.add('t.account_id=?');
+      args.add(accountId);
+    }
+    if (type != null) {
+      wheres.add('t.type=?');
+      args.add(type);
+    }
+    if (from != null) {
+      wheres.add('t.date >= ?');
+      args.add(from.toIso8601String());
+    }
+    if (to != null) {
+      wheres.add('t.date <= ?');
+      args.add(to.add(const Duration(days: 1)).toIso8601String());
+    }
+    if (query != null && query.trim().isNotEmpty) {
+      final like = '%${query.toLowerCase().trim()}%';
+      wheres.add('''
+      (
+        LOWER(COALESCE(t.description, '')) LIKE ? OR
+        LOWER(COALESCE(t.type, '')) LIKE ? OR
+        LOWER(COALESCE(a.name, '')) LIKE ? OR
+        LOWER(COALESCE(c.name, '')) LIKE ?
+      )
+      ''');
+      args.addAll([like, like, like, like]);
+    }
+
+    final where = wheres.isNotEmpty ? 'WHERE ${wheres.join(' AND ')}' : '';
+    return db.rawQuery(
+      '''
+      SELECT t.*, a.name as account_name, c.name as category_name
+      FROM transactions t
+      LEFT JOIN accounts a ON t.account_id=a.id
+      LEFT JOIN categories c ON t.category_id=c.id
+      $where
+      ORDER BY t.date DESC
+      LIMIT ?
+      ''',
+      [...args, limit],
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getTransactionsByMonth(String month,
       {int? accountId}) async {
     final db = await database;
@@ -212,6 +304,185 @@ class DatabaseHelper {
       default:
         return -value;
     }
+  }
+
+  Future<Map<String, double>> getAccountSummary(int accountId) async {
+    final db = await database;
+    final acc = await getAccountById(accountId);
+    final currentStoredBalance =
+        acc == null ? 0.0 : (acc['balance'] as num).toDouble();
+
+    final rows = await db.query(
+      'transactions',
+      columns: ['type', 'amount', 'date'],
+      where: 'account_id=?',
+      whereArgs: [accountId],
+    );
+
+    double positiveAll = 0;
+    double totalMoneyAdded = 0;
+    double spentAll = 0;
+    double transferOutAll = 0;
+    double todayExpenses = 0;
+    double thisMonthExpenses = 0;
+    double netAll = 0;
+    final now = DateTime.now();
+    final todayPrefix =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final monthPrefix =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+    for (final row in rows) {
+      final type = row['type'] as String? ?? 'expense';
+      final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+      final value = amount.abs();
+      final rawDate = row['date'] as String? ?? '';
+      final effect = _balanceEffectForTransaction(type, amount);
+      netAll += effect;
+      if (effect >= 0) {
+        positiveAll += effect;
+        if (type == 'income') {
+          totalMoneyAdded += effect;
+        }
+      } else if (type == 'expense') {
+        spentAll += value;
+        if (rawDate.startsWith(todayPrefix)) {
+          todayExpenses += value;
+        }
+        if (rawDate.startsWith(monthPrefix)) {
+          thisMonthExpenses += value;
+        }
+      } else {
+        transferOutAll += value;
+      }
+    }
+
+    final resetDate = await getResetDate(accountId);
+    if (resetDate != null) {
+      final resetBase = await getResetReportBase(accountId);
+      double positiveAfterReset = 0;
+      double expenseAfterReset = 0;
+      double transferOutAfterReset = 0;
+
+      for (final row in rows) {
+        final rawDate = row['date'] as String?;
+        if (rawDate == null || rawDate.compareTo(resetDate) < 0) continue;
+
+        final type = row['type'] as String? ?? 'expense';
+        final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+        final value = amount.abs();
+        final effect = _balanceEffectForTransaction(type, amount);
+        if (effect >= 0) {
+          positiveAfterReset += effect;
+        } else if (type == 'expense') {
+          expenseAfterReset += value;
+        } else {
+          transferOutAfterReset += value;
+        }
+      }
+
+      final availableFunds =
+          resetBase + positiveAfterReset - transferOutAfterReset;
+      final currentBalance = availableFunds - expenseAfterReset;
+      return {
+        'availableFunds': availableFunds,
+        'spent': expenseAfterReset,
+        'todayExpenses': todayExpenses,
+        'thisMonthExpenses': thisMonthExpenses,
+        'currentBalance': currentBalance,
+        'totalMoneyAdded': totalMoneyAdded,
+      };
+    }
+
+    final openingBalance = currentStoredBalance - netAll;
+    final availableFunds = openingBalance + positiveAll - transferOutAll;
+    final currentBalance = availableFunds - spentAll;
+    return {
+      'availableFunds': availableFunds,
+      'spent': spentAll,
+      'todayExpenses': todayExpenses,
+      'thisMonthExpenses': thisMonthExpenses,
+      'currentBalance': currentBalance,
+      'totalMoneyAdded': totalMoneyAdded,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> findAccountsByName(String query) async {
+    final normalizedQuery = _normalizeAccountName(query);
+    if (normalizedQuery.isEmpty) return [];
+
+    final accounts = await getAccounts();
+    final exactMatches = accounts
+        .where(
+          (account) =>
+              _normalizeAccountName(account['name']?.toString() ?? '') ==
+              normalizedQuery,
+        )
+        .toList();
+
+    if (exactMatches.isNotEmpty) return exactMatches;
+
+    return accounts
+        .where(
+          (account) => _normalizeAccountName(
+            account['name']?.toString() ?? '',
+          ).contains(normalizedQuery),
+        )
+        .toList();
+  }
+
+  Future<double> sumCurrentBalancesForAccounts(List<int> accountIds) async {
+    double total = 0;
+
+    for (final accountId in accountIds) {
+      final summary = await getAccountSummary(accountId);
+      total += summary['currentBalance'] ?? 0;
+    }
+
+    return total;
+  }
+
+  Future<double?> getAccountCurrentBalance(int accountId) async {
+    final account = await getAccountById(accountId);
+    if (account == null) return null;
+
+    final summary = await getAccountSummary(accountId);
+    return summary['currentBalance'] ?? 0;
+  }
+
+  Future<double?> getAccountBalanceOnDate(int accountId, DateTime date) async {
+    final summary = await calculateAccountBalanceAtDate(accountId, date);
+    return summary?['balance'];
+  }
+
+  Future<double> getTodayExpenseTotal() {
+    return getTodayExpense();
+  }
+
+  Future<double> getThisMonthExpenseTotal() {
+    final now = DateTime.now();
+    final month =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+    return getMonthlyExpense(month);
+  }
+
+  Future<double?> getTotalSpentForAccount(int accountId) async {
+    final account = await getAccountById(accountId);
+    if (account == null) return null;
+
+    final summary = await getAccountSummary(accountId);
+    return summary['spent'] ?? 0;
+  }
+
+  Future<double?> getTotalMoneyAddedForAccount(int accountId) async {
+    final account = await getAccountById(accountId);
+    if (account == null) return null;
+
+    final summary = await getAccountSummary(accountId);
+    return summary['totalMoneyAdded'] ?? 0;
+  }
+
+  String _normalizeAccountName(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   Future<void> updateTransactionAccount(
@@ -689,6 +960,89 @@ class DatabaseHelper {
     return {'amount': resetAmount, 'opening': opening, 'base': reportBase};
   }
 
+  Future<Map<String, double>?> calculateAccountBalanceAtDate(
+    int accountId,
+    DateTime selectedDate,
+  ) async {
+    final db = await database;
+    final acc = await getAccountById(accountId);
+    if (acc == null) return null;
+
+    final currentBalance = (acc['balance'] as num).toDouble();
+    final endOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      23,
+      59,
+      59,
+      999,
+    );
+    final rows = await db.query(
+      'transactions',
+      columns: ['type', 'amount', 'date'],
+      where: 'account_id=?',
+      whereArgs: [accountId],
+    );
+
+    double allEffects = 0;
+    double selectedDateEffects = 0;
+    for (final row in rows) {
+      final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+      final effect =
+          _balanceEffectForTransaction(row['type'] as String? ?? 'expense', amount);
+      allEffects += effect;
+
+      final rawDate = row['date'] as String?;
+      final txDate = rawDate == null ? null : DateTime.tryParse(rawDate);
+      if (txDate != null && !txDate.isAfter(endOfDay)) {
+        selectedDateEffects += effect;
+      }
+    }
+
+    final opening = currentBalance - allEffects;
+    final recalculatedBalance = opening + selectedDateEffects;
+    return {
+      'opening': opening,
+      'transaction_effect': selectedDateEffects,
+      'balance': recalculatedBalance,
+    };
+  }
+
+  Future<Map<String, double>?> resetAccountByDate(
+    int accountId,
+    DateTime selectedDate,
+  ) async {
+    final db = await database;
+    final prefs = await SharedPreferences.getInstance();
+    final result = await calculateAccountBalanceAtDate(accountId, selectedDate);
+    if (result == null) return null;
+
+    final balance = result['balance'] ?? 0;
+    final opening = result['opening'] ?? 0;
+    final transactionEffect = result['transaction_effect'] ?? 0;
+    final cutoffDate = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      23,
+      59,
+      59,
+      999,
+    ).add(const Duration(microseconds: 1)).toIso8601String();
+
+    await db.update('accounts', {'balance': balance},
+        where: 'id=?', whereArgs: [accountId]);
+    await prefs.setString('reset_date_$accountId', cutoffDate);
+    await prefs.remove('reset_transaction_id_$accountId');
+    await prefs.remove('reset_transaction_date_$accountId');
+    await prefs.setDouble('reset_amount_$accountId', transactionEffect);
+    await prefs.setDouble('reset_opening_balance_$accountId', opening);
+    await prefs.setDouble('reset_report_base_$accountId', balance);
+    await prefs.setDouble('reset_balance_$accountId', balance);
+    return result;
+  }
+
   Future<String?> getResetDate(int accountId) async {
     return (await SharedPreferences.getInstance())
         .getString('reset_date_$accountId');
@@ -831,8 +1185,8 @@ class DatabaseHelper {
   }
 
   /// Inserts only transactions whose dedupe_key is not already present.
-  /// Maps PhonePe type ('expense'/'income') directly. Category is left
-  /// null/"Unknown" unless a matching rule keyword is found.
+  /// Maps PhonePe type ('expense'/'income') directly. Unclear categories are
+  /// saved as "Uncategorized".
   /// Returns the count of newly inserted rows.
   Future<int> insertPhonePeTransactions(
     List<Map<String, dynamic>> txnMaps, {
@@ -872,8 +1226,7 @@ class DatabaseHelper {
               'transactions',
               {
                 'account_id': validAccountId,
-                'category_id':
-                    categoryId, // null if no rule/keyword matched ("Unknown")
+                'category_id': categoryId,
                 'type': appType,
                 'amount': amount,
                 'description': desc,
@@ -905,7 +1258,7 @@ class DatabaseHelper {
   }
 
   /// Checks user-defined rules first, then a built-in keyword map.
-  /// Returns null (saved as "Unknown" in UI) if nothing matches.
+  /// Falls back to "Uncategorized" if nothing matches.
   Future<int?> _inferCategoryId(DatabaseExecutor db, String description) async {
     final lower = description.toLowerCase();
     final rules = await db.query('rules');
@@ -958,10 +1311,11 @@ class DatabaseHelper {
       'hotstar',
       'spotify'
     ])) catName = 'Entertainment';
-    if (catName == null) return null;
+    catName ??= 'Uncategorized';
     final rows =
         await db.query('categories', where: 'name=?', whereArgs: [catName]);
-    return rows.isNotEmpty ? rows.first['id'] as int : null;
+    if (rows.isNotEmpty) return rows.first['id'] as int;
+    return db.insert('categories', {'name': catName});
   }
 
   static bool _matchesAny(String text, List<String> kws) =>

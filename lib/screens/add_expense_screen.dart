@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../services/sheets_service.dart';
+import '../utils/money_formatter.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -35,7 +36,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final limit = (budget['limit_amount'] as num).toDouble();
     if (!mounted || spent <= limit) return;
     final cat = _categories.firstWhere((c) => c['id'] == catId, orElse: () => {'name': 'This category'});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text('⚠ Budget exceeded for ${cat['name']}! ₹${spent.toStringAsFixed(0)} of ₹${limit.toStringAsFixed(0)}'), duration: const Duration(seconds: 4)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(backgroundColor: Colors.red, content: Text('⚠ Budget exceeded for ${cat['name']}! ₹${formatMoneyWhole(spent)} of ₹${formatMoneyWhole(limit)}'), duration: const Duration(seconds: 4)));
   }
 
   Future<void> _onDescChanged(String val) async {
@@ -51,7 +52,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (_selectedCategory == null) { _snack('Select a category'); return; }
     final account = _accounts.firstWhere((a) => a['id'] == _selectedAccount);
     final balance = (account['balance'] as num).toDouble();
-    if (amount > balance) { _snack('Insufficient balance in ${account['name']} (₹${balance.toStringAsFixed(2)})'); return; }
+    if (amount > balance) { _snack('Insufficient balance in ${account['name']} (₹${formatMoneyWhole(balance)})'); return; }
     setState(() => _saving = true);
     try {
       final newBalance = balance - amount;
@@ -68,7 +69,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat('#,##0.00');
     return Scaffold(
       appBar: AppBar(title: const Text('Add Expense'), backgroundColor: Colors.red, foregroundColor: Colors.white),
       body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(children: [
@@ -76,13 +76,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold)),
           TextField(controller: _amountCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), autofocus: true,
             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(prefixText: '₹ ', hintText: '0.00', border: InputBorder.none, prefixStyle: TextStyle(fontSize: 26, color: Colors.red, fontWeight: FontWeight.bold))),
+            decoration: const InputDecoration(prefixText: '₹ ', hintText: '0', border: InputBorder.none, prefixStyle: TextStyle(fontSize: 26, color: Colors.red, fontWeight: FontWeight.bold))),
         ])),
         const SizedBox(height: 14),
         _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('From Account *', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6),
           DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: _selectedAccount, hint: const Text('Select account'),
-            items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${fmt.format(a['balance'])}'))).toList(),
+            items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${formatMoneyWhole(a['balance'] as num)}'))).toList(),
             onChanged: (v) => setState(() => _selectedAccount = v))),
         ])),
         const SizedBox(height: 14),

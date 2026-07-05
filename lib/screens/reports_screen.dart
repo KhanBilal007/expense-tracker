@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
+import '../utils/money_formatter.dart';
+
+enum _ResetChoice { date, amount }
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -52,32 +55,35 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      double total = 0;
       String? resetDate;
       double resetBase = 0, resetAmount = 0, resetOpening = 0;
+      double reportTotal = 0, expense = 0, reportBalance = 0;
       if (_selectedAccountId != null) {
-        final acc = await _db.getAccountById(_selectedAccountId!);
-        total = acc != null ? (acc['balance'] as num).toDouble() : 0;
+        final summary = await _db.getAccountSummary(_selectedAccountId!);
+        reportTotal = summary['availableFunds'] ?? 0;
+        expense = summary['spent'] ?? 0;
+        reportBalance = summary['currentBalance'] ?? 0;
         resetDate = await _db.getResetDate(_selectedAccountId!);
         resetBase = await _db.getResetReportBase(_selectedAccountId!);
         resetAmount = await _db.getResetAmount(_selectedAccountId!);
         resetOpening = await _db.getResetOpeningBalance(_selectedAccountId!);
       } else {
-        total = await _db.getTotalBalance();
+        final accounts =
+            _accounts.isNotEmpty ? _accounts : await _db.getAccounts();
+        for (final account in accounts) {
+          final summary = await _db.getAccountSummary(account['id'] as int);
+          reportTotal += summary['availableFunds'] ?? 0;
+          expense += summary['spent'] ?? 0;
+          reportBalance += summary['currentBalance'] ?? 0;
+        }
       }
       final rangeFrom =
           resetDate == null ? _fromStr : _laterDate(resetDate, _fromStr);
-      final income = await _db.getRangeIncome(rangeFrom, _toStr,
-          accountId: _selectedAccountId);
-      final expense = await _db.getRangeExpense(rangeFrom, _toStr,
-          accountId: _selectedAccountId);
       final catExp = await _db.getRangeCategoryExpenses(rangeFrom, _toStr,
           accountId: _selectedAccountId);
       final txs = await _db.getTransactionsByRange(rangeFrom, _toStr,
           accountId: _selectedAccountId);
       final resetIds = await _db.getResetTransactionIds();
-      final reportTotal = resetDate == null ? total : resetBase + income;
-      final reportBalance = resetDate == null ? total : reportTotal - expense;
       if (!mounted) return;
       setState(() {
         _accountTotal = reportTotal;
@@ -135,8 +141,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (!mounted) return;
     final currentAccountBalance =
         account == null ? 0.0 : (account['balance'] as num).toDouble();
-    final fmt = NumberFormat('#,##0.00');
-    final msgFmt = NumberFormat('#,##0.##');
     final amountCtrl = TextEditingController();
     String? errorText;
 
@@ -150,7 +154,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    'Current account balance for "$_selectedAccountName" is ₹${fmt.format(currentAccountBalance)}.'),
+                    'Current account balance for "$_selectedAccountName" is ₹${formatMoneyWhole(currentAccountBalance)}.'),
                 const SizedBox(height: 12),
                 TextField(
                   controller: amountCtrl,
@@ -196,14 +200,55 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${msgFmt.format(resetAmount)}'),
+            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${formatMoneyWhole(resetAmount)}'),
         backgroundColor: Colors.green,
       ));
       _load();
     }
   }
 
-  void _confirmReset() {
+  Future<void> _confirmReset() async {
+    if (_selectedAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select an account first'),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+
+    final choice = await showDialog<_ResetChoice>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset account'),
+        content: const Text('How do you want to reset this account?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_ResetChoice.date),
+            child: const Text('Reset by Date'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_ResetChoice.amount),
+            child: const Text('Reset by Amount'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || choice == null) return;
+    if (choice == _ResetChoice.date) {
+      await _confirmResetByDate();
+      return;
+    }
+    _startResetByAmount();
+  }
+
+  void _startResetByAmount() {
     if (_selectedAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please select an account first'),
@@ -215,6 +260,77 @@ class _ReportsScreenState extends State<ReportsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Tap a transaction to use as reset amount')),
     );
+  }
+
+  Future<void> _confirmResetByDate() async {
+    final accountId = _selectedAccountId;
+    final accountName = _selectedAccountName ?? 'selected account';
+    if (accountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select an account first'),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: _to ?? _from ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (selectedDate == null) return;
+
+    final preview =
+        await _db.calculateAccountBalanceAtDate(accountId, selectedDate);
+    if (!mounted) return;
+    if (preview == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not calculate reset balance for this account.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    final balance = preview['balance'] ?? 0;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm Reset by Date'),
+        content: Text(
+          'Recalculate "$accountName" balance up to ${DateFormat('dd MMM yyyy').format(selectedDate)} as ₹${formatMoneyWhole(balance)}?\n\nTransactions will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final result = await _db.resetAccountByDate(accountId, selectedDate);
+    if (!mounted) return;
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Reset by Date failed.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    setState(() => _selectingReset = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(
+          'Reset by Date applied. Balance recalculated to ₹${formatMoneyWhole(result['balance'] ?? 0)}.'),
+      backgroundColor: Colors.green,
+    ));
+    await _load();
   }
 
   Future<void> _resetFromTransaction(Map<String, dynamic> tx) async {
@@ -235,7 +351,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() => _selectingReset = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
-          'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${NumberFormat('#,##0.##').format(amount)} with opening balance ₹${NumberFormat('#,##0.##').format(opening)}'),
+          'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${formatMoneyWhole(amount)} with opening balance ₹${formatMoneyWhole(opening)}'),
       backgroundColor: Colors.green,
     ));
     _load();
@@ -314,7 +430,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               color: Colors.indigo)),
                       title: Text(a['name'] as String),
                       subtitle: Text(
-                          '₹${NumberFormat('#,##0.00').format(a['balance'])}'),
+                          '₹${formatMoneyWhole(a['balance'] as num)}'),
                       trailing: _selectedAccountId == a['id']
                           ? const Icon(Icons.check, color: Colors.teal)
                           : null,
@@ -346,7 +462,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fmt = NumberFormat('#,##0.00');
     final dayFmt = DateFormat('dd MMM yyyy');
     return Scaffold(
       appBar: AppBar(
@@ -402,7 +517,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                               child: Text(
-                            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.parse(_resetDate!))} from amount ₹${NumberFormat('#,##0.##').format(_resetAmount)} with opening balance ₹${NumberFormat('#,##0.##').format(_resetOpening)}',
+                            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.parse(_resetDate!))} from amount ₹${formatMoneyWhole(_resetAmount)} with opening balance ₹${formatMoneyWhole(_resetOpening)}',
                             style: const TextStyle(
                                 color: Colors.green, fontSize: 12),
                           )),
@@ -488,17 +603,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   // Summary cards
                   Row(children: [
                     _summaryCard('Available Funds', _accountTotal, Colors.blue,
-                        Icons.account_balance_wallet, fmt),
+                        Icons.account_balance_wallet),
                     const SizedBox(width: 8),
                     _summaryCard(
-                        'Spent', _expense, Colors.red, Icons.arrow_upward, fmt),
+                        'Spent', _expense, Colors.red, Icons.arrow_upward),
                     const SizedBox(width: 8),
                     _summaryCard(
                         'Current Balance',
                         _balance,
                         _balance >= 0 ? Colors.green : Colors.orange,
-                        Icons.account_balance_wallet,
-                        fmt),
+                        Icons.account_balance_wallet),
                   ]),
                   const SizedBox(height: 20),
 
@@ -523,7 +637,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w500)),
                                       Text(
-                                          '₹${fmt.format(e.value)}  ${(pct * 100).toStringAsFixed(1)}%',
+                                          '₹${formatMoneyWhole(e.value)}  ${(pct * 100).toStringAsFixed(1)}%',
                                           style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey)),
@@ -607,7 +721,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                             fontSize: 11, color: Colors.grey)),
                                   ]),
                               trailing: Text(
-                                  '${_txSign(type)}₹${fmt.format(displayAmount)}',
+                                  '${_txSign(type)}₹${formatMoneyWhole(displayAmount)}',
                                   style: TextStyle(
                                       color: col,
                                       fontWeight: FontWeight.bold,
@@ -619,8 +733,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _summaryCard(String label, double val, Color color, IconData icon,
-          NumberFormat fmt) =>
+  Widget _summaryCard(String label, double val, Color color, IconData icon) =>
       Expanded(
           child: Card(
               child: Padding(
@@ -635,7 +748,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 fontSize: 11, color: Colors.grey),
                             maxLines: 2,
                             softWrap: true),
-                        Text('₹${fmt.format(val.abs())}',
+                        Text('₹${formatMoneyWhole(val.abs())}',
                             style: TextStyle(
                                 color: color,
                                 fontWeight: FontWeight.bold,

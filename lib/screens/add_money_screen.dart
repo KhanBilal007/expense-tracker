@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../services/sheets_service.dart';
+import '../utils/money_formatter.dart';
 
 class AddMoneyScreen extends StatefulWidget {
   const AddMoneyScreen({super.key});
@@ -49,7 +49,7 @@ class _AddMoneyScreenState extends State<AddMoneyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme; final fmt = NumberFormat('#,##0.00');
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Add Money'), backgroundColor: cs.primary, foregroundColor: cs.onPrimary),
       body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(children: [
@@ -57,13 +57,13 @@ class _AddMoneyScreenState extends State<AddMoneyScreen> {
           const Text('Amount', style: TextStyle(fontWeight: FontWeight.bold)),
           TextField(controller: _amountCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), autofocus: true,
             style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-            decoration: InputDecoration(prefixText: '₹ ', prefixStyle: TextStyle(fontSize: 26, color: cs.primary, fontWeight: FontWeight.bold), hintText: '0.00', border: InputBorder.none)),
+            decoration: InputDecoration(prefixText: '₹ ', prefixStyle: TextStyle(fontSize: 26, color: cs.primary, fontWeight: FontWeight.bold), hintText: '0', border: InputBorder.none)),
         ])),
         const SizedBox(height: 14),
         _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('To Account *', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6),
           DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: _selectedAccount, hint: const Text('Select account'),
-            items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${fmt.format(a['balance'])}'))).toList(),
+            items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${formatMoneyWhole(a['balance'] as num)}'))).toList(),
             onChanged: (v) => setState(() => _selectedAccount = v))),
         ])),
         const SizedBox(height: 14),
