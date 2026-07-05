@@ -31,3 +31,5 @@
 28. [x] Refine AI Assistant follow-up memory with date range and clearer clarification handling. Fixed 2026-07-05.
 29. [x] Create Local Data Vault JSON mirror for future AI and Google Sheet sync. Fixed 2026-07-05.
 30. [x] Add Local Data Vault verification debug log. Fixed 2026-07-05.
+31. [x] Connect AI Agent finance answers to Local Data Vault records. Fixed 2026-07-05.
+32. [x] Improve AI vault account-name spelling mistake handling. Fixed 2026-07-05.

@@ -51,8 +51,20 @@ class LocalDataVaultService {
     return _readJsonList(transactionsFile);
   }
 
+  Future<List<Map<String, dynamic>>> readExpenses() {
+    return _readJsonList(expensesFile);
+  }
+
+  Future<List<Map<String, dynamic>>> readMoneyAdded() {
+    return _readJsonList(moneyAddedFile);
+  }
+
   Future<Map<String, dynamic>> readSummaries() {
     return _readJsonMap(summariesFile);
+  }
+
+  Future<Map<String, dynamic>> readMetadata() {
+    return _readJsonMap(metadataFile);
   }
 
   Future<Map<String, dynamic>> readSyncQueue() {

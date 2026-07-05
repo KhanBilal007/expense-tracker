@@ -17,3 +17,5 @@
 13. Local Data Vault is a synchronized readable mirror, not the primary database.
 14. AI Agent and future Google Sheet sync should read from or sync through the Local Data Vault only through safe read/export services.
 15. Google Sheet API integration is not part of the Local Data Vault setup until explicitly approved later.
+16. AI finance answers should use Local Data Vault JSON records as the main readable data source where possible.
+17. AI must treat Local Data Vault access as read-only and must not create, edit, delete, reset, transfer, sync, or modify data.

@@ -2,6 +2,8 @@
 
 ## 2026-07-05
 
+- Point 46: Improved AI vault account-name typo matching with staged fuzzy scoring and confidence-based clarification.
+- Point 46: Connected AI finance answers to Local Data Vault JSON records with fuzzy account matching and vault-based calculations.
 - Point 44 Verification: Added Local Data Vault debug logs for folder path, JSON file existence, and record counts after export.
 - Point 44: Added Local Data Vault service, JSON exports, safe auto-refresh hooks, metadata, and future Google Sheet sync queue structure.
 - Point 40: Refined AI follow-up memory with date-range context, clearer current-balance wording, and required account clarification wording.

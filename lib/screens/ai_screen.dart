@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../db/database_helper.dart';
+import '../services/ai_vault_reader_service.dart';
 import '../utils/money_formatter.dart';
 
 class AiScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class AiScreen extends StatefulWidget {
 class _AiScreenState extends State<AiScreen> {
   static const _aiIconAsset = 'assets/icons/ai_agent_option_2_icon.png';
 
-  final _db = DatabaseHelper();
+  final _db = AiVaultReaderService();
   final _inputCtrl = TextEditingController();
   final List<_AiMessage> _messages = [
     const _AiMessage(
@@ -71,7 +71,12 @@ class _AiScreenState extends State<AiScreen> {
       if (followUpAnswer != null) return followUpAnswer;
     }
 
-    switch (_detectIntent(q)) {
+    final intent = _detectIntent(q);
+    if (_requiresVaultData(intent) && !await _db.hasReadableData()) {
+      return 'I could not read the local records safely. Please refresh data and try again.';
+    }
+
+    switch (intent) {
       case _AiIntent.currentAccountBalance:
       case _AiIntent.accountBalanceOnDate:
         return _answerBalance(question);
@@ -81,6 +86,8 @@ class _AiScreenState extends State<AiScreen> {
         return _answerExpensePeriod(question, today: true);
       case _AiIntent.thisMonthExpense:
         return _answerExpensePeriod(question, today: false);
+      case _AiIntent.lastMonthExpense:
+        return _answerExpenseRange(question, 'last month');
       case _AiIntent.accountSpent:
         return _answerSpent(question);
       case _AiIntent.accountMoneyAdded:
@@ -105,6 +112,10 @@ class _AiScreenState extends State<AiScreen> {
 
     if (accountId == null || accountName == null) {
       return 'Which account should I check?';
+    }
+
+    if (!await _db.hasReadableData()) {
+      return 'I could not read the local records safely. Please refresh data and try again.';
     }
 
     final date = _parseQuestionDate(text);
@@ -191,6 +202,7 @@ class _AiScreenState extends State<AiScreen> {
     if (_isAppHelpQuestion(text)) return _AiIntent.appHelp;
     if (_isTodayExpenseQuestion(text)) return _AiIntent.todayExpense;
     if (_isThisMonthExpenseQuestion(text)) return _AiIntent.thisMonthExpense;
+    if (_isLastMonthExpenseQuestion(text)) return _AiIntent.lastMonthExpense;
     if (_isSumBalanceQuestion(text)) return _AiIntent.sumAccountBalances;
     if (_isAccountSummaryQuestion(text)) return _AiIntent.accountSummary;
     if (_isTransactionQuestion(text)) return _AiIntent.transactionSearch;
@@ -208,6 +220,19 @@ class _AiScreenState extends State<AiScreen> {
     }
 
     return _AiIntent.unsupported;
+  }
+
+  bool _requiresVaultData(_AiIntent intent) {
+    return intent == _AiIntent.currentAccountBalance ||
+        intent == _AiIntent.sumAccountBalances ||
+        intent == _AiIntent.accountBalanceOnDate ||
+        intent == _AiIntent.todayExpense ||
+        intent == _AiIntent.thisMonthExpense ||
+        intent == _AiIntent.lastMonthExpense ||
+        intent == _AiIntent.accountSpent ||
+        intent == _AiIntent.accountMoneyAdded ||
+        intent == _AiIntent.accountSummary ||
+        intent == _AiIntent.transactionSearch;
   }
 
   String _answerAppHelp(String q) {
@@ -304,13 +329,17 @@ class _AiScreenState extends State<AiScreen> {
     final accountId = account['id'] as int;
     final accountDisplayName = account['name'] as String;
 
-    if (dateSplit.askedForDate) {
-      final date = _parseQuestionDate(dateSplit.dateText);
-      if (date == null) {
-        return 'Which date should I use?';
-      }
+    final requestedDate = dateSplit.askedForDate
+        ? _parseQuestionDate(dateSplit.dateText)
+        : _hasDateReference(question)
+            ? _parseQuestionDate(question)
+            : null;
+    if (dateSplit.askedForDate && requestedDate == null) {
+      return 'Which date should I use?';
+    }
 
-      final balance = await _db.getAccountBalanceOnDate(accountId, date);
+    if (requestedDate != null) {
+      final balance = await _db.getAccountBalanceOnDate(accountId, requestedDate);
       if (balance == null) {
         return 'Account "$accountDisplayName" not found.';
       }
@@ -319,9 +348,9 @@ class _AiScreenState extends State<AiScreen> {
         accountId: accountId,
         accountName: accountDisplayName,
         intent: _AiIntent.accountBalanceOnDate,
-        date: date,
+        date: requestedDate,
       );
-      return '$accountDisplayName balance on ${_formatDate(date)} was ${_formatMoney(balance)}.';
+      return '$accountDisplayName balance on ${_formatDate(requestedDate)} was ${_formatMoney(balance)}.';
     }
 
     final balance = await _db.getAccountCurrentBalance(accountId);
@@ -339,6 +368,10 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<String> _answerSumBalance(String question) async {
     final accountNames = _extractSumAccountNames(question);
+    if (accountNames.isEmpty) {
+      final total = await _db.getTotalCurrentBalance();
+      return 'Total balance is ${_formatMoney(total)}.';
+    }
     if (accountNames.length < 2) {
       return 'Please include at least two account names.';
     }
@@ -390,6 +423,39 @@ class _AiScreenState extends State<AiScreen> {
         : await _db.getThisMonthExpenseTotal();
     final label = today ? 'Today expense' : 'This month expense';
     return '$label is ${_formatMoney(amount)}.';
+  }
+
+  Future<String> _answerExpenseRange(String question, String periodLabel) async {
+    final period = _parseQuestionPeriod(periodLabel);
+    if (period == null) return 'Which date should I use?';
+
+    final accountName = _extractOptionalExpenseAccountName(question);
+    int? accountId;
+    String? matchedAccountName;
+    if (accountName != null && accountName.isNotEmpty) {
+      final lookup = await _lookupSingleAccount(accountName);
+      if (lookup.message != null) return lookup.message!;
+      accountId = lookup.account!['id'] as int;
+      matchedAccountName = lookup.account!['name'] as String;
+    }
+
+    final amount = await _db.getRangeExpense(
+      _startOfDayIso(period.from),
+      _endOfDayIso(period.to),
+      accountId: accountId,
+    );
+
+    if (accountId != null && matchedAccountName != null) {
+      _rememberFinanceContext(
+        accountId: accountId,
+        accountName: matchedAccountName,
+        intent: _AiIntent.accountSpent,
+        period: period,
+      );
+      return '$matchedAccountName expense ${period.label} is ${_formatMoney(amount)}.';
+    }
+
+    return '${_titleCase(period.label)} expense is ${_formatMoney(amount)}.';
   }
 
   Future<String> _answerSpent(String question) async {
@@ -468,14 +534,17 @@ class _AiScreenState extends State<AiScreen> {
     }
 
     if (matches.isEmpty) {
-      return _AccountLookupResult(message: 'Account "$cleanName" not found.');
+      return const _AccountLookupResult(
+        message:
+            'I could not confidently match the account name. Which account should I check?',
+      );
     }
 
     if (matches.length > 1) {
-      final names = matches.map((account) => '- ${account['name']}').join('\n');
+      final names = matches.map((account) => account['name']).join(' or ');
       return _AccountLookupResult(
         message:
-            'I found multiple accounts matching $cleanName. Which account do you mean?\n$names',
+            'Which account do you mean: $names?',
       );
     }
 
@@ -511,6 +580,22 @@ class _AiScreenState extends State<AiScreen> {
         RegExp(r'\b\d{1,3}\s+days?\s+ago\b').hasMatch(text);
   }
 
+  bool _hasDateReference(String value) {
+    final text = _cleanText(value).toLowerCase();
+    return text.contains('today') ||
+        text.contains('yesterday') ||
+        text.contains('last week') ||
+        text.contains('this month') ||
+        text.contains('last month') ||
+        RegExp(r'\b\d{1,3}\s+days?\s+ago\b').hasMatch(text) ||
+        RegExp(r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b').hasMatch(text) ||
+        _monthNumbers.keys.any(
+          (month) => RegExp(
+            r'\b(\d{1,2}\s+' + month + r'|' + month + r'\s+\d{1,2})\b',
+          ).hasMatch(text),
+        );
+  }
+
   bool _isBalanceQuestion(String q) {
     return q.contains('balance') ||
         q.contains('money in ') ||
@@ -537,6 +622,13 @@ class _AiScreenState extends State<AiScreen> {
 
   bool _isThisMonthExpenseQuestion(String q) {
     return (q.contains('this month') || q.contains('monthly')) &&
+        (q.contains('expense') ||
+            q.contains('spent') ||
+            q.contains('spending'));
+  }
+
+  bool _isLastMonthExpenseQuestion(String q) {
+    return q.contains('last month') &&
         (q.contains('expense') ||
             q.contains('spent') ||
             q.contains('spending'));
@@ -622,6 +714,8 @@ class _AiScreenState extends State<AiScreen> {
       text = text.replaceFirst(RegExp(pattern, caseSensitive: false), '');
     }
 
+    text = _removeDatePhrases(text);
+    text = text.replaceAll(RegExp(r'\bbalance\b', caseSensitive: false), '');
     text = text.replaceFirst(RegExp(r'\s+balance$', caseSensitive: false), '');
     return _cleanText(text);
   }
@@ -745,8 +839,12 @@ class _AiScreenState extends State<AiScreen> {
     final type = transaction['type']?.toString() ?? 'expense';
     final sign = type == 'income' || type == 'transfer_in' ? '+' : '-';
     final description = transaction['description']?.toString().trim();
-    final category = transaction['category_name']?.toString().trim();
-    final account = transaction['account_name']?.toString().trim();
+    final category = (transaction['category'] ?? transaction['category_name'])
+        ?.toString()
+        .trim();
+    final account = (transaction['accountName'] ?? transaction['account_name'])
+        ?.toString()
+        .trim();
     final title = description != null && description.isNotEmpty
         ? description
         : category != null && category.isNotEmpty
@@ -890,6 +988,11 @@ class _AiScreenState extends State<AiScreen> {
     return '${date.day} ${_monthLabels[date.month - 1]}';
   }
 
+  String _titleCase(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
   String _formatStoredDate(String? rawDate) {
     if (rawDate == null || rawDate.isEmpty) return 'Unknown date';
 
@@ -921,6 +1024,31 @@ class _AiScreenState extends State<AiScreen> {
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceFirst(RegExp(r'\s+only$', caseSensitive: false), '')
         .trim();
+  }
+
+  String _removeDatePhrases(String value) {
+    var text = value
+        .replaceAll(RegExp(r'\b(today|yesterday|last week|this month|last month)\b',
+            caseSensitive: false), '')
+        .replaceAll(RegExp(r'\b\d{1,3}\s+days?\s+ago\b',
+            caseSensitive: false), '')
+        .replaceAll(RegExp(r'\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b'), '');
+
+    for (final month in _monthNumbers.keys) {
+      text = text
+          .replaceAll(
+            RegExp(r'\b\d{1,2}\s+' + month + r'(?:\s+\d{2,4})?\b',
+                caseSensitive: false),
+            '',
+          )
+          .replaceAll(
+            RegExp(month + r'\s+\d{1,2}(?:\s+\d{2,4})?\b',
+                caseSensitive: false),
+            '',
+          );
+    }
+
+    return _cleanText(text);
   }
 
   String _cleanAccountName(String value) {
@@ -1137,6 +1265,7 @@ enum _AiIntent {
   accountBalanceOnDate,
   todayExpense,
   thisMonthExpense,
+  lastMonthExpense,
   accountSpent,
   accountMoneyAdded,
   accountSummary,

@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 46 refined: AI vault account matching now handles spelling mistakes with staged fuzzy confidence rules.
+- Point 46 applied: AI Agent finance answers now read from Local Data Vault through a vault reader service.
 - Point 44 verification applied: Local Data Vault export now prints path, file existence, and record count debug logs.
 - Point 44 applied: Local Data Vault service and safe SQLite-to-JSON mirror export added for future AI/Google Sheet sync.
 - Point 40 refined: AI Assistant follow-up memory now keeps last date range and clearer account clarification wording.
@@ -111,6 +113,19 @@ Expense Tracker Flutter app.
 - After successful export, debug logs now print `LOCAL_DATA_VAULT_PATH`, file existence for key JSON files, and counts for accounts, transactions, expenses, and money added.
 - Google Sheet API was not added.
 - AI Agent was not rewritten, but vault read methods are available for future AI use.
+
+## Latest AI Vault Integration Update
+
+- Added `lib/services/ai_vault_reader_service.dart`.
+- AI finance answers now use Local Data Vault JSON records through the vault reader service.
+- AI reads vault accounts, transactions, expenses, money added, summaries, and metadata safely.
+- Improved fuzzy account matching for exact, partial, token, initials, vowel-loose, and Levenshtein spelling-mistake account queries.
+- Added confidence thresholds so clear best matches are used, close matches ask clarification, and low-confidence matches are rejected.
+- Current balance, historical balance, expenses, money added, totals, and transaction search are calculated from vault data.
+- AI screen no longer imports `DatabaseHelper` for finance answers.
+- Missing or unreadable vault data returns a safe message instead of guessing.
+- AI remains read-only and does not create, edit, delete, reset, transfer, sync, or modify data.
+- Dictate Mode, mic UI, AI icon, Google Sheet API, and external AI/API integrations were not added.
 
 ## Latest AI Tab UI Update
 

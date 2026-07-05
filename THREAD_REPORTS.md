@@ -1,5 +1,59 @@
 # Thread Reports
 
+## 2026-07-05 - Point 46 Fuzzy Account Matching
+
+Role: AI Data Integration Engineer
+
+Scope:
+
+- Patched `lib/services/ai_vault_reader_service.dart`.
+- Improved account matching for names read from `accounts.json`.
+- Matching order now prioritizes exact normalized match, contains/partial match, token match, and fuzzy spelling match.
+- Added token-level fuzzy scoring, initials scoring, vowel-loose matching, and Levenshtein similarity.
+- Added confidence rules: low confidence returns no match, clear best match returns one account, close top matches return clarification options.
+
+Verification by logic:
+
+- `Mahmod Bhai` strongly matches `Mahmood Bhai`.
+- `Mehmood Bai` strongly matches `Mahmood Bhai`.
+- `idrees` matches `idris`.
+- `Mhmood` matches `Mahmood Bhai` only when it is clearly closest; similar close accounts trigger clarification.
+
+App code status:
+
+- AI still reads from Local Data Vault.
+- No finance calculations, UI screens, reset logic, PDF sync, AI icon, Dictate Mode, external API, or write flows were changed.
+
+## 2026-07-05 - Point 46 AI Local Data Vault Integration
+
+Role: AI Data Integration Engineer
+
+Scope:
+
+- Added `lib/services/ai_vault_reader_service.dart`.
+- Patched `lib/services/local_data_vault_service.dart`.
+- Patched `lib/screens/ai_screen.dart`.
+- AI finance answers now read from Local Data Vault JSON records instead of direct database query methods.
+- Added safe vault reader methods for accounts, transactions, expenses, money added, summaries, and metadata.
+- Added fuzzy account matching for exact, partial, token, and typo-style queries.
+- Added vault-based calculations for current balance, historical balance, expenses by range, money added, totals, and transaction search.
+- Kept chat memory and relative date handling in the AI screen.
+
+Verification for user:
+
+- Run `flutter pub get`.
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask `balance of Mahmood Bhai`, `how much money in idris`, `today expense`, `this month expense`, `last month expense`, `spent from Mahmood Bhai`, `money added to Mahmood Bhai`, `total balance`, `total balance of Mahmood Bhai and idris`, `transactions of Mahmood Bhai`, and `find transaction phonepe`.
+- Try typo account names like `Mahmod Bhai` or `idrees`.
+- Ask a follow-up such as `what it was 20 days ago`.
+
+App code status:
+
+- AI remains read-only.
+- Dictate Mode was not restored.
+- AI icon size/assets, Home, Reports, Transactions, Accounts, reset logic, PDF sync behavior, Google Sheet API, external AI/API, stored values, and write flows were not changed.
+
 ## 2026-07-05 - Point 44 Local Data Vault Verification Log
 
 Role: QA / DevOps / Documentation Engineer
