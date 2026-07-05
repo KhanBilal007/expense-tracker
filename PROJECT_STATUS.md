@@ -19,6 +19,14 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 44 verification applied: Local Data Vault export now prints path, file existence, and record count debug logs.
+- Point 44 applied: Local Data Vault service and safe SQLite-to-JSON mirror export added for future AI/Google Sheet sync.
+- Point 40 refined: AI Assistant follow-up memory now keeps last date range and clearer account clarification wording.
+- Point 43 completed: Dictate Mode was cancelled and confirmed absent from AI Assistant code, dependencies, permissions, and services.
+- Point 40 confirmed: AI follow-up memory and relative date handling are present for balance follow-ups like `what it was 20 day ago`.
+- Point 40 refined: AI Assistant now remembers last finance context and answers relative-date follow-ups.
+- Point 40 refined: AI Agent now handles more finance phrasing and shows per-account lines for balance-sum answers.
+- Point 39 updated: AI Agent Option 2 icon size increased slightly in the AI screen header and Home bottom navigation.
 - Point 40 applied: AI Agent now has broader deterministic intent detection, richer app-help answers, account summaries, and read-only transaction search.
 - Point 39 applied: AI tab/screen now uses the selected Option 2 friendly robot icon asset path.
 - Points 22 + 23 + 24 applied: AI Assistant now answers supported finance-data questions from read-only backend calculations.
@@ -55,18 +63,54 @@ Expense Tracker Flutter app.
 - Registered `assets/icons/ai_agent_option_2_icon.png` in `pubspec.yaml`.
 - Added the selected Option 2 AI Agent icon to the AI Assistant app bar.
 - Updated the Home bottom navigation AI item to use the same asset at compact icon size.
+- Increased the AI Assistant header icon from 28px to 40px.
+- Increased the Home bottom navigation AI image icon from 26px to 30px.
 - Kept fallback robot icons so layout remains stable if the asset cannot load.
 - User still needs to place `ai_agent_option_2_icon_1024.png` as `assets/icons/ai_agent_option_2_icon.png` before running Flutter.
 
 ## Latest AI Intelligence Update
 
 - Improved AI question understanding for balances, account balance sums, balance-on-date, today expense, this month expense, spent, money added, account summaries, transactions, and app help.
+- Added follow-up context for last finance account, intent, and date.
+- Follow-up context now also keeps the last finance date range when available.
+- Current balance answers now say `balance today is ...`, making later relative-date follow-ups clearer.
+- Multiple account matches now ask `Which account do you mean?` and show matching options.
+- Added relative date handling for today, yesterday, N days ago, last week, this month, last month, and `on 5 July` style follow-ups.
+- Balance follow-ups now use `getAccountBalanceOnDate(...)` for historical values.
+- Spent follow-ups for day/month/week periods use read-only range expense queries.
+- Refined phrasing support for `monthly spending`, `expenses from account`, `income in account`, and account names that include the word `account`.
+- Sum-balance answers now show each matched account balance and the final total.
 - Added explicit local intent detection in `lib/screens/ai_screen.dart`.
 - Added read-only `searchTransactionsForAi(...)` in `lib/db/database_helper.dart`.
 - Reused existing backend summary methods for financial answers.
 - Added clarification responses for missing or ambiguous account names and missing dates.
 - Expanded app-help responses for accounts, expenses, add money, transfers, PDF sync, reports, reset by date, reset by amount, Home account selection, and AI usage.
 - AI remains read-only and does not create, edit, delete, reset, sync, or call external AI/API services.
+
+## Latest Dictate Mode Cleanup
+
+- Confirmed no microphone button is present in `lib/screens/ai_screen.dart`.
+- Confirmed no Dictate/listening UI or speech-to-text code is present.
+- Confirmed `speech_to_text` is not present in `pubspec.yaml`.
+- Confirmed Android `RECORD_AUDIO` permission is not present.
+- Confirmed no `lib/services/voice_input_service.dart` file exists.
+- Typed AI input and Send button remain the only AI input path.
+- No app code changes were required for this cleanup pass.
+
+## Latest Local Data Vault Update
+
+- Added `lib/services/local_data_vault_service.dart`.
+- Added `path_provider` for app-local document storage.
+- Local vault folder: app documents directory plus `expense_tracker_data`.
+- Vault JSON files: `accounts.json`, `transactions.json`, `expenses.json`, `money_added.json`, `transfers.json`, `summaries.json`, `metadata.json`, and `sync_queue.json`.
+- SQLite remains the source of truth; Local Data Vault is a synchronized readable mirror.
+- Added manual export method `exportAllDataToLocalVault()` in `database_helper.dart`.
+- Added safe export scheduling after the database first opens.
+- Added safe refresh hooks after account changes, transaction inserts, transaction account moves, transfers, reset/report-state changes, reset all data, and PhonePe imports.
+- Vault export failures are caught and logged with `debugPrint` so app flows do not crash.
+- After successful export, debug logs now print `LOCAL_DATA_VAULT_PATH`, file existence for key JSON files, and counts for accounts, transactions, expenses, and money added.
+- Google Sheet API was not added.
+- AI Agent was not rewritten, but vault read methods are available for future AI use.
 
 ## Latest AI Tab UI Update
 

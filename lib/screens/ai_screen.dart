@@ -21,6 +21,11 @@ class _AiScreenState extends State<AiScreen> {
       fromUser: false,
     ),
   ];
+  int? _lastAccountId;
+  String? _lastAccountName;
+  _AiIntent? _lastFinanceIntent;
+  DateTime? _lastDate;
+  _AiPeriod? _lastPeriod;
 
   static const _suggestions = [
     'Balance of Mahmood Bhai',
@@ -61,6 +66,11 @@ class _AiScreenState extends State<AiScreen> {
 
   Future<String> _answer(String question) async {
     final q = question.toLowerCase();
+    if (_isFollowUpQuestion(q)) {
+      final followUpAnswer = await _answerFollowUp(question);
+      if (followUpAnswer != null) return followUpAnswer;
+    }
+
     switch (_detectIntent(q)) {
       case _AiIntent.currentAccountBalance:
       case _AiIntent.accountBalanceOnDate:
@@ -86,6 +96,93 @@ class _AiScreenState extends State<AiScreen> {
       case _AiIntent.unsupported:
         return 'I can answer balances, expenses, money added, transactions, and app-help questions for now.';
     }
+  }
+
+  Future<String?> _answerFollowUp(String question) async {
+    final text = _cleanText(question).toLowerCase();
+    final accountId = _lastAccountId;
+    final accountName = _lastAccountName;
+
+    if (accountId == null || accountName == null) {
+      return 'Which account should I check?';
+    }
+
+    final date = _parseQuestionDate(text);
+    final parsedPeriod = _parseQuestionPeriod(text);
+    final period = parsedPeriod ??
+        (text.contains('same period') || text.contains('same month')
+            ? _lastPeriod
+            : null);
+    final intent = _lastFinanceIntent;
+
+    if (intent == _AiIntent.accountSpent) {
+      if (period != null) {
+        final spent = await _db.getRangeExpense(
+          _startOfDayIso(period.from),
+          _endOfDayIso(period.to),
+          accountId: accountId,
+        );
+        _rememberFinanceContext(
+          accountId: accountId,
+          accountName: accountName,
+          intent: _AiIntent.accountSpent,
+          period: period,
+        );
+        return '$accountName spent ${period.label} is ${_formatMoney(spent)}.';
+      }
+
+      if (date != null) {
+        final spent = await _db.getRangeExpense(
+          _startOfDayIso(date),
+          _endOfDayIso(date),
+          accountId: accountId,
+        );
+        _rememberFinanceContext(
+          accountId: accountId,
+          accountName: accountName,
+          intent: _AiIntent.accountSpent,
+          date: date,
+        );
+        return '$accountName spent on ${_formatDate(date)} is ${_formatMoney(spent)}.';
+      }
+    }
+
+    if (intent == _AiIntent.currentAccountBalance ||
+        intent == _AiIntent.accountBalanceOnDate ||
+        text.contains('balance') ||
+        text.contains('it')) {
+      final now = DateTime.now();
+      final balanceDate = date ??
+          (period?.label == 'this month'
+              ? DateTime(now.year, now.month, now.day)
+              : period?.to) ??
+          (text.contains('same date') || text.contains('same day')
+              ? _lastDate
+              : null);
+      if (balanceDate == null) {
+        return 'Which date should I use?';
+      }
+
+      final balance = await _db.getAccountBalanceOnDate(accountId, balanceDate);
+      if (balance == null) {
+        return 'I cannot calculate that balance safely.';
+      }
+
+      _rememberFinanceContext(
+        accountId: accountId,
+        accountName: accountName,
+        intent: _AiIntent.accountBalanceOnDate,
+        date: balanceDate,
+        period: period,
+      );
+      return '$accountName balance on ${_formatDate(balanceDate)} was ${_formatMoney(balance)}.';
+    }
+
+    if (date == null && period == null) {
+      return 'Which date should I use?';
+    }
+
+    return null;
   }
 
   _AiIntent _detectIntent(String q) {
@@ -165,6 +262,12 @@ class _AiScreenState extends State<AiScreen> {
       final lookup = await _lookupSingleAccount(accountName);
       if (lookup.message != null) return lookup.message!;
       accountId = lookup.account!['id'] as int;
+      _rememberFinanceContext(
+        accountId: accountId,
+        accountName: lookup.account!['name'] as String,
+        intent: _AiIntent.transactionSearch,
+        date: date,
+      );
     }
 
     final cleanQuery = _transactionSearchTerm(question);
@@ -212,6 +315,12 @@ class _AiScreenState extends State<AiScreen> {
         return 'Account "$accountDisplayName" not found.';
       }
 
+      _rememberFinanceContext(
+        accountId: accountId,
+        accountName: accountDisplayName,
+        intent: _AiIntent.accountBalanceOnDate,
+        date: date,
+      );
       return '$accountDisplayName balance on ${_formatDate(date)} was ${_formatMoney(balance)}.';
     }
 
@@ -220,7 +329,12 @@ class _AiScreenState extends State<AiScreen> {
       return 'Account "$accountDisplayName" not found.';
     }
 
-    return '$accountDisplayName balance is ${_formatMoney(balance)}.';
+    _rememberFinanceContext(
+      accountId: accountId,
+      accountName: accountDisplayName,
+      intent: _AiIntent.currentAccountBalance,
+    );
+    return '$accountDisplayName balance today is ${_formatMoney(balance)}.';
   }
 
   Future<String> _answerSumBalance(String question) async {
@@ -236,11 +350,17 @@ class _AiScreenState extends State<AiScreen> {
       accounts.add(lookup.account!);
     }
 
+    final accountBalances = <String>[];
+    for (final account in accounts) {
+      final balance = await _db.getAccountCurrentBalance(account['id'] as int);
+      accountBalances.add(
+        '${account['name']}: ${_formatMoney(balance ?? 0)}',
+      );
+    }
+
     final accountIds = accounts.map((account) => account['id'] as int).toList();
     final total = await _db.sumCurrentBalancesForAccounts(accountIds);
-    final names = accounts.map((account) => account['name'] as String).join(' and ');
-
-    return 'Total balance of $names is ${_formatMoney(total)}.';
+    return '${accountBalances.join('\n')}\nTotal: ${_formatMoney(total)}.';
   }
 
   Future<String> _answerExpensePeriod(
@@ -257,6 +377,11 @@ class _AiScreenState extends State<AiScreen> {
       final amount =
           summary[today ? 'todayExpenses' : 'thisMonthExpenses'] ?? 0;
       final label = today ? 'Today expense' : 'This month expense';
+      _rememberFinanceContext(
+        accountId: account['id'] as int,
+        accountName: account['name'] as String,
+        intent: _AiIntent.accountSpent,
+      );
       return '$label for ${account['name']} is ${_formatMoney(amount)}.';
     }
 
@@ -282,6 +407,11 @@ class _AiScreenState extends State<AiScreen> {
       return 'Account "${account['name']}" not found.';
     }
 
+    _rememberFinanceContext(
+      accountId: account['id'] as int,
+      accountName: account['name'] as String,
+      intent: _AiIntent.accountSpent,
+    );
     return 'Spent from ${account['name']} is ${_formatMoney(spent)}.';
   }
 
@@ -300,6 +430,11 @@ class _AiScreenState extends State<AiScreen> {
       return 'Account "${account['name']}" not found.';
     }
 
+    _rememberFinanceContext(
+      accountId: account['id'] as int,
+      accountName: account['name'] as String,
+      intent: _AiIntent.accountMoneyAdded,
+    );
     return 'Money added to ${account['name']} is ${_formatMoney(added)}.';
   }
 
@@ -314,15 +449,22 @@ class _AiScreenState extends State<AiScreen> {
 
     final account = lookup.account!;
     final summary = await _db.getAccountSummary(account['id'] as int);
+    _rememberFinanceContext(
+      accountId: account['id'] as int,
+      accountName: account['name'] as String,
+      intent: _AiIntent.accountSummary,
+    );
     return '${account['name']} summary: available ${_formatMoney(summary['availableFunds'] ?? 0)}, spent ${_formatMoney(summary['spent'] ?? 0)}, money added ${_formatMoney(summary['totalMoneyAdded'] ?? 0)}, balance ${_formatMoney(summary['currentBalance'] ?? 0)}.';
   }
 
   Future<_AccountLookupResult> _lookupSingleAccount(String accountName) async {
-    final cleanName = _cleanText(accountName);
+    final cleanName = _cleanAccountName(accountName);
     var matches = await _db.findAccountsByName(cleanName);
     if (matches.isEmpty &&
         cleanName.toLowerCase().startsWith('account ')) {
-      matches = await _db.findAccountsByName(cleanName.substring(8));
+      matches = await _db.findAccountsByName(
+        _cleanAccountName(cleanName.substring(8)),
+      );
     }
 
     if (matches.isEmpty) {
@@ -333,11 +475,40 @@ class _AiScreenState extends State<AiScreen> {
       final names = matches.map((account) => '- ${account['name']}').join('\n');
       return _AccountLookupResult(
         message:
-            'I found multiple accounts matching $cleanName. Which one should I use?\n$names',
+            'I found multiple accounts matching $cleanName. Which account do you mean?\n$names',
       );
     }
 
     return _AccountLookupResult(account: matches.first);
+  }
+
+  void _rememberFinanceContext({
+    required int accountId,
+    required String accountName,
+    required _AiIntent intent,
+    DateTime? date,
+    _AiPeriod? period,
+  }) {
+    _lastAccountId = accountId;
+    _lastAccountName = accountName;
+    _lastFinanceIntent = intent;
+    _lastDate = date;
+    _lastPeriod = period;
+  }
+
+  bool _isFollowUpQuestion(String q) {
+    final text = _cleanText(q).toLowerCase();
+    if (text.isEmpty) return false;
+
+    return RegExp(r'\b(it|that|about)\b').hasMatch(text) ||
+        text.startsWith('and ') ||
+        text.startsWith('on ') ||
+        text == 'today' ||
+        text == 'yesterday' ||
+        text == 'this month' ||
+        text == 'last month' ||
+        text == 'last week' ||
+        RegExp(r'\b\d{1,3}\s+days?\s+ago\b').hasMatch(text);
   }
 
   bool _isBalanceQuestion(String q) {
@@ -359,16 +530,22 @@ class _AiScreenState extends State<AiScreen> {
 
   bool _isTodayExpenseQuestion(String q) {
     return q.contains('today') &&
-        (q.contains('expense') || q.contains('spent'));
+        (q.contains('expense') ||
+            q.contains('spent') ||
+            q.contains('spending'));
   }
 
   bool _isThisMonthExpenseQuestion(String q) {
     return (q.contains('this month') || q.contains('monthly')) &&
-        (q.contains('expense') || q.contains('spent'));
+        (q.contains('expense') ||
+            q.contains('spent') ||
+            q.contains('spending'));
   }
 
   bool _isSpentQuestion(String q) {
-    return q.contains('spent');
+    return q.contains('spent') ||
+        q.contains('spending') ||
+        RegExp(r'\bexpenses?\s+(from|for|of|in)\b').hasMatch(q);
   }
 
   bool _isMoneyAddedQuestion(String q) {
@@ -455,8 +632,9 @@ class _AiScreenState extends State<AiScreen> {
       r'^how\s+much\s+was\s+spent\s+(from|by|for)\s+',
       r'^how\s+much\s+spent\s+(from|by|for)\s+',
       r'^spent\s+(from|by|for)\s+',
+      r'^expenses?\s+(from|by|for|of|in)\s+',
       r'^total\s+spent\s+(from|by|for)\s+',
-      r'^expense\s+(from|for)\s+',
+      r'^total\s+expenses?\s+(from|by|for|of|in)\s+',
     ];
 
     for (final pattern in patterns) {
@@ -473,8 +651,8 @@ class _AiScreenState extends State<AiScreen> {
       r'^how\s+much\s+was\s+added\s+(to|for)\s+',
       r'^money\s+added\s+(to|for)\s+',
       r'^added\s+(to|for)\s+',
-      r'^income\s+(to|for|of)\s+',
-      r'^total\s+income\s+(to|for|of)\s+',
+      r'^income\s+(to|for|of|in)\s+',
+      r'^total\s+income\s+(to|for|of|in)\s+',
     ];
 
     for (final pattern in patterns) {
@@ -611,6 +789,21 @@ class _AiScreenState extends State<AiScreen> {
     if (text.contains('yesterday')) {
       return DateTime(now.year, now.month, now.day - 1);
     }
+    if (text.contains('last week')) {
+      return DateTime(now.year, now.month, now.day).subtract(
+        const Duration(days: 7),
+      );
+    }
+
+    final daysAgoMatch =
+        RegExp(r'\b(\d{1,3})\s+days?\s+ago\b').firstMatch(text);
+    if (daysAgoMatch != null) {
+      final days = int.tryParse(daysAgoMatch.group(1) ?? '');
+      if (days == null) return null;
+      return DateTime(now.year, now.month, now.day).subtract(
+        Duration(days: days),
+      );
+    }
 
     final slashMatch =
         RegExp(r'\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b')
@@ -652,6 +845,31 @@ class _AiScreenState extends State<AiScreen> {
     return null;
   }
 
+  _AiPeriod? _parseQuestionPeriod(String value) {
+    final text = _cleanText(value).toLowerCase();
+    final now = DateTime.now();
+
+    if (text.contains('this month')) {
+      final from = DateTime(now.year, now.month);
+      final to = DateTime(now.year, now.month + 1, 0);
+      return _AiPeriod(from: from, to: to, label: 'this month');
+    }
+
+    if (text.contains('last month')) {
+      final from = DateTime(now.year, now.month - 1);
+      final to = DateTime(now.year, now.month, 0);
+      return _AiPeriod(from: from, to: to, label: 'last month');
+    }
+
+    if (text.contains('last week')) {
+      final today = DateTime(now.year, now.month, now.day);
+      final from = today.subtract(const Duration(days: 7));
+      return _AiPeriod(from: from, to: today, label: 'last week');
+    }
+
+    return null;
+  }
+
   DateTime? _safeDate(int? year, int? month, int? day) {
     if (year == null || month == null || day == null) return null;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
@@ -681,11 +899,34 @@ class _AiScreenState extends State<AiScreen> {
     return _formatDate(parsed);
   }
 
+  String _startOfDayIso(DateTime date) {
+    return DateTime(date.year, date.month, date.day).toIso8601String();
+  }
+
+  String _endOfDayIso(DateTime date) {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      23,
+      59,
+      59,
+      999,
+    ).toIso8601String();
+  }
+
   String _cleanText(String value) {
     return value
         .replaceAll(RegExp(r'[?!.]+'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceFirst(RegExp(r'\s+only$', caseSensitive: false), '')
+        .trim();
+  }
+
+  String _cleanAccountName(String value) {
+    return _cleanText(value)
+        .replaceFirst(RegExp(r'^account\s+', caseSensitive: false), '')
+        .replaceFirst(RegExp(r'\s+account$', caseSensitive: false), '')
         .trim();
   }
 
@@ -739,14 +980,14 @@ class _AiScreenState extends State<AiScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(8),
               child: Image.asset(
                 _aiIconAsset,
-                width: 28,
-                height: 28,
+                width: 40,
+                height: 40,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.smart_toy_outlined, size: 26),
+                    const Icon(Icons.smart_toy_outlined, size: 36),
               ),
             ),
             const SizedBox(width: 8),
@@ -875,6 +1116,18 @@ class _DateQuestionParts {
     required this.accountText,
     this.dateText = '',
     this.askedForDate = false,
+  });
+}
+
+class _AiPeriod {
+  final DateTime from;
+  final DateTime to;
+  final String label;
+
+  const _AiPeriod({
+    required this.from,
+    required this.to,
+    required this.label,
   });
 }
 

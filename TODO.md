@@ -23,3 +23,11 @@
 20. [x] Record decimal-display decision as UI-only while preserving internal decimal technical values. Fixed 2026-07-05.
 21. [x] Use selected Option 2 AI Agent icon for AI tab/screen branding. Fixed 2026-07-05.
 22. [x] Increase AI Agent intelligence for natural-language finance, transaction, and app-help questions. Fixed 2026-07-05.
+23. [x] Increase AI Agent Option 2 icon size slightly. Fixed 2026-07-05.
+24. [x] Refine AI Agent finance phrasing and per-account sum-balance answers. Fixed 2026-07-05.
+25. [x] Add AI Assistant follow-up context and relative date support. Fixed 2026-07-05.
+26. [x] Verify AI Assistant follow-up memory for `what it was 20 day ago`. Fixed 2026-07-05.
+27. [x] Cancel/remove Dictate Mode from AI Assistant. Completed 2026-07-05; no Dictate Mode code remained.
+28. [x] Refine AI Assistant follow-up memory with date range and clearer clarification handling. Fixed 2026-07-05.
+29. [x] Create Local Data Vault JSON mirror for future AI and Google Sheet sync. Fixed 2026-07-05.
+30. [x] Add Local Data Vault verification debug log. Fixed 2026-07-05.

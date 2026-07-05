@@ -13,3 +13,7 @@
 9. Whole-rupee money display is display-only unless the user later approves rounding stored values.
 10. Internal technical values may still use decimals when needed and must not be changed for display-only decisions.
 11. Dedupe keys using `amount.toStringAsFixed(2)`, imported transaction IDs/dedupe IDs, date timestamps such as `.000`, parser values, and internal matching values should remain unchanged because they are not shown to the user and may be needed for duplicate detection or date handling.
+12. SQLite/app database remains the source of truth.
+13. Local Data Vault is a synchronized readable mirror, not the primary database.
+14. AI Agent and future Google Sheet sync should read from or sync through the Local Data Vault only through safe read/export services.
+15. Google Sheet API integration is not part of the Local Data Vault setup until explicitly approved later.

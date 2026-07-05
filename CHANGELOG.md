@@ -2,6 +2,14 @@
 
 ## 2026-07-05
 
+- Point 44 Verification: Added Local Data Vault debug logs for folder path, JSON file existence, and record counts after export.
+- Point 44: Added Local Data Vault service, JSON exports, safe auto-refresh hooks, metadata, and future Google Sheet sync queue structure.
+- Point 40: Refined AI follow-up memory with date-range context, clearer current-balance wording, and required account clarification wording.
+- Point 43: Cancelled Dictate Mode and confirmed no mic UI, speech dependency, Android microphone permission, or voice input service remains.
+- Point 40: Verified AI follow-up memory and relative date support for the requested balance follow-up flow; no app code change needed.
+- Point 40: Added AI Assistant follow-up context and relative date support for balance and spent questions.
+- Point 40: Refined AI Agent natural-language finance handling for monthly spending, account expenses, account income, account-name cleanup, and per-account balance totals.
+- Point 39: Increased the AI Agent Option 2 icon size slightly in the AI screen header and Home bottom navigation.
 - Point 40: Improved AI Agent intent detection, app-help answers, clarification handling, account summaries, and read-only transaction search.
 - Point 39: Registered and wired the selected Option 2 AI Agent icon for the AI screen and bottom navigation AI item.
 - Points 22 + 23 + 24: Added read-only backend finance query helpers and updated AI Assistant to answer supported balance, expense, spent, and money-added questions from real app data.

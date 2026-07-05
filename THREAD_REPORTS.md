@@ -1,5 +1,211 @@
 # Thread Reports
 
+## 2026-07-05 - Point 44 Local Data Vault Verification Log
+
+Role: QA / DevOps / Documentation Engineer
+
+Scope:
+
+- Patched `lib/services/local_data_vault_service.dart`.
+- Added debug console verification after successful Local Data Vault export.
+- Logs the full vault folder path.
+- Logs existence checks for `accounts.json`, `transactions.json`, `expenses.json`, `money_added.json`, `summaries.json`, `sync_queue.json`, and `metadata.json`.
+- Logs record counts for accounts, transactions, expenses, and money added.
+
+Verification for user:
+
+- Run `flutter pub get`.
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Trigger a vault export by opening the app or changing account/transaction data.
+- Check debug console for `LOCAL_DATA_VAULT_PATH=` and `LOCAL_DATA_VAULT_FILE ... exists=true` lines.
+
+App code status:
+
+- No UI, calculation, AI, Dictate Mode, AI icon, reset logic, PDF sync, or Google Sheet API changes were made.
+
+## 2026-07-05 - Point 44 Local Data Vault
+
+Role: Backend Data Architect
+
+Scope:
+
+- Added `lib/services/local_data_vault_service.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Patched `pubspec.yaml`.
+- Added a Local Data Vault folder named `expense_tracker_data` under the app documents directory.
+- Added safe JSON export for accounts, transactions, expenses, money added, transfers, summaries, metadata, and sync queue.
+- Added `exportAllDataToLocalVault()` for manual full export.
+- Added safe export scheduling after the database first opens.
+- Added safe auto-refresh hooks after account changes, transaction changes, transfers, reset/report-state changes, reset all data, and PhonePe import saves.
+- Added read helpers for future AI access to vault accounts, transactions, summaries, and sync queue.
+
+Verification for user:
+
+- Run `flutter pub get`.
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Create or update an account/transaction, then inspect the app documents folder for `expense_tracker_data`.
+- Confirm these files exist: `accounts.json`, `transactions.json`, `expenses.json`, `money_added.json`, `transfers.json`, `summaries.json`, `metadata.json`, `sync_queue.json`.
+
+App code status:
+
+- SQLite remains the source of truth.
+- Local Data Vault is a readable synchronized mirror.
+- Google Sheet API and external APIs were not added.
+- AI icon, Dictate Mode, Home, Reports, Transactions, Accounts, reset logic, PDF sync behavior, stored values, and calculations were not changed.
+
+## 2026-07-05 - Point 40 AI Follow-Up Memory Refinement
+
+Role: AI Agent Engineer
+
+Scope:
+
+- Patched `lib/screens/ai_screen.dart`.
+- Added date-range memory to the current chat finance context.
+- Kept last account id, account name, intent, date, and period available for follow-up questions.
+- Updated current balance answers to say `balance today is ...`.
+- Updated multiple-account clarification to ask `Which account do you mean?` and show options.
+- Preserved read-only historical balance via `getAccountBalanceOnDate(...)`.
+- Preserved read-only spent follow-ups via `getRangeExpense(...)`.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask `what is the balance of Mahmood Bhai`, then `what it was 20 day ago`.
+- Ask `what was it yesterday`.
+- Ask `spent from Mahmood Bhai`, then `what about last month`.
+- Restart the app and ask `what it was 20 day ago`; AI should ask which account to check.
+
+App code status:
+
+- Dictate Mode was not restored.
+- AI icon size/assets, Home, Reports, Transactions, Accounts, reset logic, PDF sync, write flows, and stored data were not changed.
+
+## 2026-07-05 - Point 43 Dictate Mode Cancelled
+
+Role: AI Cleanup Engineer
+
+Scope:
+
+- Verified `lib/screens/ai_screen.dart`.
+- Verified `pubspec.yaml`.
+- Verified `android/app/src/main/AndroidManifest.xml`.
+- Verified `lib/services/voice_input_service.dart` is not present.
+- Confirmed no microphone button, listening state, Dictate Mode UI, speech-to-text code, `speech_to_text` dependency, Android microphone permission, or voice input service remains.
+- Kept typed AI input and Send button unchanged.
+
+Verification for user:
+
+- Run `flutter pub get`.
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Open AI tab and confirm there is no mic button.
+- Type an AI question and tap Send.
+- Confirm finance answers still work.
+
+App code status:
+
+- No app code changes were required in this cleanup pass.
+- AI finance logic, follow-up memory, AI icon size/assets, Home, Reports, Transactions, Accounts, reset logic, PDF sync, and calculations were not changed.
+
+## 2026-07-05 - Point 40 Follow-Up Memory Verification
+
+Role: AI Agent Engineer
+
+Scope:
+
+- Verified existing `lib/screens/ai_screen.dart` follow-up implementation.
+- Confirmed last finance account, intent, and date context are stored in the AI screen.
+- Confirmed follow-up phrases such as `what it was 20 day ago`, `what was it yesterday`, `and today`, `on 5 July`, `last month`, and `this month` are handled.
+- Confirmed historical balance follow-ups use read-only `getAccountBalanceOnDate(...)`.
+- Confirmed no AI write actions or external AI/API calls are present.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask `what is the balance of Mahmood Bhai`, then `what it was 20 day ago`.
+- Restart the app and ask `what it was 20 day ago`; AI should ask which account to check.
+
+App code status:
+
+- No app code was changed in this verification pass.
+- Dictate Mode, AI icon size/assets, Home, Reports, Transactions, Accounts, reset logic, PDF sync, and write flows were not changed.
+
+## 2026-07-05 - Point 40 AI Follow-Up Context and Relative Dates
+
+Role: AI Agent Engineer
+
+Scope:
+
+- Patched `lib/screens/ai_screen.dart`.
+- Added last finance context memory for account id, account name, intent, and date.
+- Added follow-up handling for phrases such as `what it was 20 day ago`, `what was it yesterday`, `what about last month`, `and today`, and `on 5 July`.
+- Added relative date parsing for today, yesterday, N days ago, and last week.
+- Added relative period support for this month, last month, and last week.
+- Balance follow-ups reuse read-only `getAccountBalanceOnDate(...)`.
+- Spent follow-ups reuse read-only `getRangeExpense(...)`.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask `what is the balance of Mahmood Bhai`, then ask `what it was 20 day ago`.
+- Ask `balance of idris`, then ask `what was it yesterday`.
+- Ask `spent from Mahmood Bhai`, then ask `what about last month`.
+
+App code status:
+
+- AI remains read-only.
+- AI icon size/assets, Home, Reports, Transactions, Accounts, PDF sync, reset logic, stored values, and write flows were not changed.
+
+## 2026-07-05 - Point 40 AI Agent Intelligence Refinement
+
+Role: AI Agent Engineer
+
+Scope:
+
+- Patched `lib/screens/ai_screen.dart`.
+- Improved natural-language finance matching for `monthly spending`, `expenses from account`, and `income in account`.
+- Added account-name cleanup for phrases like `idris account`.
+- Updated sum-balance answers to show each account balance and the final total.
+- Preserved read-only database usage and reused existing backend finance methods.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Ask: `monthly spending`, `expenses from idris`, `income in idris account`, and `sum balance of Mahmood Bhai and idris`.
+
+App code status:
+
+- AI icon size/layout, Home, Transactions, Reports, Accounts, PDF sync, reset logic, stored values, and write flows were not changed.
+
+## 2026-07-05 - Point 39 AI Agent Icon Size Tweak
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/ai_screen.dart`.
+- Patched `lib/screens/home_screen.dart`.
+- Increased AI Assistant header icon from 28px to 40px.
+- Increased Home bottom navigation AI image icon from 26px to 30px.
+- Kept bottom navigation more compact than the AI screen header.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Confirm the AI bottom-nav icon is slightly larger but still balanced.
+- Open AI tab and confirm the header icon is larger and neat.
+
+App code status:
+
+- AI logic, backend logic, calculations, Home logic, Transactions, Reports, and Accounts were not changed.
+
 ## 2026-07-05 - Point 40 AI Agent Intelligence
 
 Role: AI Agent Engineer

@@ -847,11 +847,11 @@ class _HomeScreenState extends State<HomeScreen> {
             else
               Image.asset(
                 assetPath,
-                width: 26,
-                height: 26,
+                width: 30,
+                height: 30,
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) =>
-                    Icon(icon, color: color, size: 26),
+                    Icon(icon, color: color, size: 30),
               ),
             const SizedBox(height: 5),
             Text(label,

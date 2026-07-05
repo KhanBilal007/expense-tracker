@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite/sqlite_api.dart' show ConflictAlgorithm;
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import '../services/local_data_vault_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -11,7 +14,10 @@ class DatabaseHelper {
   static Database? _db;
 
   Future<Database> get database async {
-    _db ??= await _initDB();
+    if (_db == null) {
+      _db = await _initDB();
+      _refreshLocalDataVaultSafely();
+    }
     return _db!;
   }
 
@@ -124,6 +130,197 @@ class DatabaseHelper {
     return selected;
   }
 
+  Future<void> exportAllDataToLocalVault() async {
+    try {
+      final snapshot = await _buildLocalDataVaultSnapshot();
+      await LocalDataVaultService().exportAll(snapshot);
+    } catch (e, st) {
+      debugPrint('[LocalDataVault] export failed: $e');
+      debugPrint('$st');
+    }
+  }
+
+  void _refreshLocalDataVaultSafely() {
+    unawaited(exportAllDataToLocalVault());
+  }
+
+  Future<Map<String, dynamic>> _buildLocalDataVaultSnapshot() async {
+    final db = await database;
+    final now = DateTime.now();
+    final exportedAt = now.toIso8601String();
+    final month =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
+
+    final accountRows = await db.query('accounts', orderBy: 'name ASC');
+    final accounts = accountRows
+        .map((row) => {
+              'id': row['id'],
+              'name': row['name'],
+              'currentBalance': row['balance'],
+              'homeOrder': row['home_order'],
+              'createdDate': null,
+            })
+        .toList();
+
+    final transactionRows = await db.rawQuery('''
+      SELECT
+        t.id,
+        t.account_id,
+        a.name AS account_name,
+        t.category_id,
+        c.name AS category_name,
+        t.amount,
+        t.type,
+        t.description,
+        t.date,
+        t.balance_after,
+        t.is_recurring,
+        t.source,
+        t.transaction_id,
+        t.dedupe_key
+      FROM transactions t
+      LEFT JOIN accounts a ON t.account_id=a.id
+      LEFT JOIN categories c ON t.category_id=c.id
+      ORDER BY t.date DESC
+    ''');
+
+    final transactions = transactionRows.map(_vaultTransactionMap).toList();
+    final expenses = transactionRows
+        .where((row) => row['type'] == 'expense')
+        .map((row) => {
+              'transactionId': row['id'],
+              'accountId': row['account_id'],
+              'accountName': row['account_name'],
+              'amount': row['amount'],
+              'category': row['category_name'],
+              'description': row['description'],
+              'date': row['date'],
+              'source': row['source'],
+            })
+        .toList();
+    final moneyAdded = transactionRows
+        .where((row) => row['type'] == 'income')
+        .map((row) => {
+              'transactionId': row['id'],
+              'accountId': row['account_id'],
+              'accountName': row['account_name'],
+              'amount': row['amount'],
+              'description': row['description'],
+              'date': row['date'],
+              'source': row['source'],
+            })
+        .toList();
+
+    final transferRows = await db.rawQuery('''
+      SELECT
+        tr.id,
+        tr.from_account,
+        from_acc.name AS from_account_name,
+        tr.to_account,
+        to_acc.name AS to_account_name,
+        tr.amount,
+        tr.date,
+        tr.note
+      FROM transfers tr
+      LEFT JOIN accounts from_acc ON tr.from_account=from_acc.id
+      LEFT JOIN accounts to_acc ON tr.to_account=to_acc.id
+      ORDER BY tr.date DESC
+    ''');
+    final transfers = transferRows
+        .map((row) => {
+              'id': row['id'],
+              'fromAccountId': row['from_account'],
+              'fromAccount': row['from_account_name'],
+              'toAccountId': row['to_account'],
+              'toAccount': row['to_account_name'],
+              'amount': row['amount'],
+              'date': row['date'],
+              'description': row['note'],
+            })
+        .toList();
+
+    final accountSummaries = <Map<String, dynamic>>[];
+    for (final account in accountRows) {
+      final accountId = account['id'] as int;
+      final summary = await getAccountSummary(accountId);
+      accountSummaries.add({
+        'accountId': accountId,
+        'accountName': account['name'],
+        'currentBalance': summary['currentBalance'],
+        'availableFunds': summary['availableFunds'],
+        'spent': summary['spent'],
+        'todayExpenses': summary['todayExpenses'],
+        'thisMonthExpenses': summary['thisMonthExpenses'],
+        'totalMoneyAdded': summary['totalMoneyAdded'],
+      });
+    }
+
+    final summaries = {
+      'totalCurrentBalance': await getTotalBalance(),
+      'todayExpense': await getTodayExpense(),
+      'thisMonthExpense': await getMonthlyExpense(month),
+      'accountWiseBalances': accountSummaries
+          .map((summary) => {
+                'accountId': summary['accountId'],
+                'accountName': summary['accountName'],
+                'currentBalance': summary['currentBalance'],
+              })
+          .toList(),
+      'accountWiseExpenses': accountSummaries
+          .map((summary) => {
+                'accountId': summary['accountId'],
+                'accountName': summary['accountName'],
+                'spent': summary['spent'],
+                'todayExpenses': summary['todayExpenses'],
+                'thisMonthExpenses': summary['thisMonthExpenses'],
+              })
+          .toList(),
+      'accountSummaries': accountSummaries,
+      'lastUpdatedAt': exportedAt,
+    };
+
+    return {
+      'accounts': accounts,
+      'transactions': transactions,
+      'expenses': expenses,
+      'money_added': moneyAdded,
+      'transfers': transfers,
+      'summaries': summaries,
+      'metadata': {
+        'schemaVersion': 1,
+        'appName': 'Expense Tracker',
+        'lastExportAt': exportedAt,
+        'recordCounts': {
+          'accounts': accounts.length,
+          'transactions': transactions.length,
+          'expenses': expenses.length,
+          'moneyAdded': moneyAdded.length,
+          'transfers': transfers.length,
+        },
+      },
+    };
+  }
+
+  Map<String, dynamic> _vaultTransactionMap(Map<String, Object?> row) {
+    return {
+      'transactionId': row['id'],
+      'accountId': row['account_id'],
+      'accountName': row['account_name'],
+      'categoryId': row['category_id'],
+      'category': row['category_name'],
+      'amount': row['amount'],
+      'type': row['type'],
+      'description': row['description'],
+      'date': row['date'],
+      'balanceAfter': row['balance_after'],
+      'isRecurring': row['is_recurring'],
+      'source': row['source'],
+      'importSource': row['source'],
+      'sourceTransactionId': row['transaction_id'],
+      'dedupeKey': row['dedupe_key'],
+    };
+  }
+
   Future<List<Map<String, dynamic>>> getAccounts() async =>
       (await database).query('accounts', orderBy: 'name ASC');
   Future<List<Map<String, dynamic>>> getHomeAccounts() async {
@@ -161,19 +358,32 @@ class DatabaseHelper {
     return r.isNotEmpty ? r.first : null;
   }
 
-  Future<int> insertAccount(String name, double balance) async =>
-      (await database).insert('accounts', {'name': name, 'balance': balance});
-  Future<void> updateAccount(int id, String name) async => (await database)
-      .update('accounts', {'name': name}, where: 'id=?', whereArgs: [id]);
-  Future<void> updateAccountBalance(int id, double balance) async =>
-      (await database).update('accounts', {'balance': balance},
-          where: 'id=?', whereArgs: [id]);
+  Future<int> insertAccount(String name, double balance) async {
+    final id =
+        await (await database).insert('accounts', {'name': name, 'balance': balance});
+    _refreshLocalDataVaultSafely();
+    return id;
+  }
+
+  Future<void> updateAccount(int id, String name) async {
+    await (await database)
+        .update('accounts', {'name': name}, where: 'id=?', whereArgs: [id]);
+    _refreshLocalDataVaultSafely();
+  }
+
+  Future<void> updateAccountBalance(int id, double balance) async {
+    await (await database).update('accounts', {'balance': balance},
+        where: 'id=?', whereArgs: [id]);
+    _refreshLocalDataVaultSafely();
+  }
+
   Future<bool> deleteAccount(int id) async {
     final db = await database;
     final c = Sqflite.firstIntValue(await db.rawQuery(
         'SELECT COUNT(*) FROM transactions WHERE account_id=?', [id]));
     if ((c ?? 0) > 0) return false;
     await db.delete('accounts', where: 'id=?', whereArgs: [id]);
+    _refreshLocalDataVaultSafely();
     return true;
   }
 
@@ -289,8 +499,11 @@ class DatabaseHelper {
         args);
   }
 
-  Future<int> insertTransaction(Map<String, dynamic> data) async =>
-      (await database).insert('transactions', data);
+  Future<int> insertTransaction(Map<String, dynamic> data) async {
+    final id = await (await database).insert('transactions', data);
+    _refreshLocalDataVaultSafely();
+    return id;
+  }
 
   double _balanceEffectForTransaction(String type, double amount) {
     final value = amount.abs();
@@ -561,6 +774,7 @@ class DatabaseHelper {
         whereArgs: [transactionId],
       );
     });
+    _refreshLocalDataVaultSafely();
   }
 
   Future<void> doTransfer({
@@ -648,6 +862,7 @@ class DatabaseHelper {
         'balance_after': newToBal,
       });
     });
+    _refreshLocalDataVaultSafely();
   }
 
   Future<List<Map<String, dynamic>>> getBudgets(String month) async =>
@@ -917,6 +1132,7 @@ class DatabaseHelper {
     await prefs.setDouble('reset_amount_$accountId', resetAmount);
     await prefs.setDouble('reset_report_base_$accountId', reportBase);
     await prefs.setDouble('reset_balance_$accountId', reportBase);
+    _refreshLocalDataVaultSafely();
   }
 
   Future<Map<String, double>> resetAccountFromTransaction(
@@ -957,6 +1173,7 @@ class DatabaseHelper {
     await prefs.setDouble('reset_opening_balance_$accountId', opening);
     await prefs.setDouble('reset_report_base_$accountId', reportBase);
     await prefs.setDouble('reset_balance_$accountId', reportBase);
+    _refreshLocalDataVaultSafely();
     return {'amount': resetAmount, 'opening': opening, 'base': reportBase};
   }
 
@@ -1040,6 +1257,7 @@ class DatabaseHelper {
     await prefs.setDouble('reset_opening_balance_$accountId', opening);
     await prefs.setDouble('reset_report_base_$accountId', balance);
     await prefs.setDouble('reset_balance_$accountId', balance);
+    _refreshLocalDataVaultSafely();
     return result;
   }
 
@@ -1093,6 +1311,7 @@ class DatabaseHelper {
     for (final key in keys) {
       await prefs.remove(key);
     }
+    _refreshLocalDataVaultSafely();
   }
 
   Future<double> getResetBalance(int accountId) async {
@@ -1126,6 +1345,7 @@ class DatabaseHelper {
     await db.delete('transfers');
     await db.rawUpdate('UPDATE accounts SET balance=0');
     debugPrint('[ResetAllData] Reset App Data finished');
+    _refreshLocalDataVaultSafely();
   }
 
   // ── PhonePe import ────────────────────────────────────────────────────────
@@ -1254,6 +1474,9 @@ class DatabaseHelper {
       }
     });
     debugPrint('[PhonePeImport] saved count=$inserted');
+    if (inserted > 0) {
+      _refreshLocalDataVaultSafely();
+    }
     return inserted;
   }
 
