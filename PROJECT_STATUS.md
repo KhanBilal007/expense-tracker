@@ -1,6 +1,6 @@
 # Project Status
 
-Date: 2026-07-05
+Date: 2026-07-06
 
 ## Project
 
@@ -10,15 +10,16 @@ Expense Tracker Flutter app.
 
 - Flutter app with local database.
 - Home screen is in `lib/screens/home_screen.dart`.
-- Current home account display uses first two accounts from `_accounts.take(2)`.
-- Current bottom nav is inside `home_screen.dart` and has Home, Add Expense, Sync.
-- Current PDF import flow in `transactions_screen.dart` opens `ImportReviewScreen`.
+- Home displays a persisted user selection of maximum two accounts, with first-two fallback.
+- Current bottom nav is inside `home_screen.dart` and has Home, AI, Sync.
+- Home and Transactions Sync use the shared PhonePe auto-import service without a review screen.
 - Current duplicate handling uses `dedupe_key` in `database_helper.dart`.
 - Current reports/reset logic is in `reports_screen.dart` and `database_helper.dart`.
 - Account creation flow is in `accounts_screen.dart`.
 
 ## Current Status
 
+- Point 11 full static bug audit completed: low-risk analyzer/date-filter fixes were applied and larger persistence, retry, lifecycle, permission, and test risks were documented in `BUG_AUDIT_REPORT.md`.
 - Point 52 applied: Home bottom navigation Sync and Transactions Sync now use one shared PhonePe PDF sync service with automatic import, duplicate skipping, and a download-first no-file message.
 - Point 39 compact nav trial applied: bottom navigation height is now 54px with tighter icon, label, and gap sizing to reduce Recent Transactions overlap risk.
 - Point 39 height follow-up applied: Home bottom navigation height was reduced and scroll bottom padding was increased so the bar no longer overlaps Recent Transactions.
@@ -80,7 +81,7 @@ Expense Tracker Flutter app.
 - Added the selected Option 2 AI Agent icon to the AI Assistant app bar.
 - Updated the Home bottom navigation AI item to use the same asset at compact icon size.
 - Increased the AI Assistant header icon from 28px to 40px.
-- Increased the Home bottom navigation AI image icon from 26px to 30px.
+- Current Home bottom navigation AI image icon is 24px in the compact 54px navigation bar.
 - Kept fallback robot icons so layout remains stable if the asset cannot load.
 - User still needs to place `ai_agent_option_2_icon_1024.png` as `assets/icons/ai_agent_option_2_icon.png` before running Flutter.
 

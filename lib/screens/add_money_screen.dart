@@ -37,7 +37,7 @@ class _AddMoneyScreenState extends State<AddMoneyScreen> {
       final newBalance = (account['balance'] as num).toDouble() + amount;
       await _db.updateAccountBalance(_selectedAccount!, newBalance);
       final txData = {'account_id': _selectedAccount, 'category_id': null, 'type': 'income', 'amount': amount, 'description': _descCtrl.text.trim().isEmpty ? 'Income' : _descCtrl.text.trim(), 'date': DateTime.now().toIso8601String(), 'balance_after': newBalance};
-      final id = await _db.insertTransaction(txData);
+      await _db.insertTransaction(txData);
       // Item 9: sync to Google Sheets
       final txs = await _db.getTransactions(limit: 1);
       if (txs.isNotEmpty) await _sheets.appendTransaction(txs.first);

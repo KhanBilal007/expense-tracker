@@ -21,8 +21,9 @@ class PhonePeTransaction {
   /// Unique key for duplicate detection.
   /// Prefers transaction ID; falls back to date+amount+type+description.
   String get dedupeKey {
-    if (transactionId != null && transactionId!.isNotEmpty) {
-      return 'txn_$transactionId';
+    final id = transactionId;
+    if (id != null && id.isNotEmpty) {
+      return 'txn_$id';
     }
 
     final d = dateTime;

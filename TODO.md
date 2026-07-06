@@ -48,3 +48,12 @@
 45. [x] Point 39: Reduce bottom navigation height and prevent Recent Transactions overlap. Fixed 2026-07-06.
 46. [x] Point 39: Try compact 54px bottom navigation sizing. Fixed 2026-07-06.
 47. [x] Point 52: Reuse Transactions PhonePe PDF sync from the Home bottom navigation Sync button. Fixed 2026-07-06.
+48. [x] Point 11: Complete full static project bug audit and create `BUG_AUDIT_REPORT.md`. Fixed 2026-07-06.
+49. Make Add Expense, Add Money, SMS import, and recurring balance/transaction writes atomic.
+50. Consolidate legacy `SheetsService` with active Local Data Vault Google Sheet sync configuration.
+51. Wire `retryPendingGoogleSheetSync()` to a safe automatic retry trigger.
+52. Serialize Local Data Vault exports and sync status writes.
+53. Apply dialog-local context and post-close refresh patterns to Categories, Budgets, Rules, and Recurring.
+54. Define and fix recurring month-end and missed-period behavior.
+55. Add automated tests for finance calculations, reset, parser/dedupe, vault, Google sync, and AI queries.
+56. Review Android SMS/storage permissions and production release signing.

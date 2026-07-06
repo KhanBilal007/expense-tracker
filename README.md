@@ -1,17 +1,28 @@
-# expense_tracker
+# Expense Tracker
 
-A new Flutter project.
+A Flutter expense tracker with SQLite as the source of truth, whole-rupee UI,
+account summaries, PhonePe statement import, Reports reset flows, a Local Data
+Vault JSON mirror, Google Sheet backup sync, and a read-only local AI assistant.
 
-## Getting Started
+## Project References
 
-This project is a starting point for a Flutter application.
+- Current state: `PROJECT_STATUS.md`
+- Confirmed decisions: `DECISIONS.md`
+- Work queue: `TODO.md`
+- Change history: `CHANGELOG.md`
+- Latest static audit: `BUG_AUDIT_REPORT.md`
+- Google Sheet setup: `docs/GOOGLE_SHEET_SYNC_SETUP.md`
 
-A few resources to get you started if this is your first Flutter project:
+## Manual Verification
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Run from the Flutter project directory:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
+
+SQLite remains the source of truth. Local Data Vault and Google Sheet data are
+mirrors for AI reads, backup, and reporting.

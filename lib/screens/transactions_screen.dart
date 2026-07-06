@@ -58,8 +58,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         final date = DateTime.tryParse(t['date'] ?? '');
         if (date == null) return false;
         if (_fromDate != null && date.isBefore(_fromDate!)) return false;
-        if (_toDate != null &&
-            date.isAfter(_toDate!.add(const Duration(days: 1)))) return false;
+        final toDate = _toDate;
+        if (toDate != null &&
+            !date.isBefore(toDate.add(const Duration(days: 1)))) return false;
       }
       return true;
     }).toList();

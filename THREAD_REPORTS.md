@@ -1,5 +1,29 @@
 # Thread Reports
 
+## 2026-07-06 - Point 11 Full Project Bug Audit
+
+Role: QA / DevOps / Documentation Engineer
+
+Scope:
+
+- Inspected all Dart source files, app startup, navigation, screens, database methods, PhonePe parser/sync, Local Data Vault, Google Sheet sync/retry, AI services, Android configuration, assets, tests, and shared documentation.
+- Created `BUG_AUDIT_REPORT.md` with verified features, findings, risk boundaries, manual tests, and recommended next points.
+- Applied only four low-risk code fixes: two unused-local cleanups, one redundant null-assertion cleanup, and the Transactions end-date boundary correction.
+- Replaced the template README and corrected stale current-baseline documentation.
+
+Important findings:
+
+- Several balance-plus-transaction write paths are not atomic.
+- Google Sheet retry has no automatic caller.
+- Legacy per-row Sheets sync and active vault sync use separate configuration keys.
+- SMS ingestion lacks dedupe protection.
+- Vault exports can overlap because refreshes are unawaited.
+- Secondary dialogs retain the older parent-context lifecycle pattern.
+
+Command status:
+
+- No terminal or Flutter commands were run. Analyzer/test/runtime status requires user verification.
+
 ## 2026-07-06 - Point 52 Shared PhonePe Sync
 
 Role: Frontend + PDF Sync Bug Fix Engineer
