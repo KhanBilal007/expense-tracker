@@ -39,3 +39,6 @@
 36. [x] Point 49: Add Google Sheet sync status and retry safety. Fixed 2026-07-06.
 37. [x] Point 50: Fix AI latest/recent transaction questions from Local Data Vault. Fixed 2026-07-06.
 38. [x] Point 50: Build complete AI Transaction Query Brain for Local Data Vault records. Fixed 2026-07-06.
+39. [x] Point 48 / 49 Follow-up: Fix Google Sheet sync HTTP 302 redirect failure. Fixed 2026-07-06.
+40. [x] Point 48 / 49 Follow-up: Use GET, not POST, for Apps Script 302/303 redirect target. Fixed 2026-07-06.
+41. [x] Point 50 Analyze Fix: Resolve `MyApp` widget test error and unnecessary transaction non-null assertion warning. Fixed 2026-07-06.

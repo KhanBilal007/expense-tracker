@@ -2,6 +2,9 @@
 
 ## 2026-07-05
 
+- Point 50 Analyze Fix: Updated the widget smoke test to use `ExpenseApp` and removed an unnecessary transaction description non-null assertion.
+- Point 48 / 49 Follow-up: Corrected Apps Script redirect handling so POST is sent only to `/exec` and redirected `googleusercontent` URLs are followed with GET.
+- Point 48 / 49 Follow-up: Fixed Google Sheet sync HTTP 302 handling by adding a central redirect-aware JSON POST method before failure checks.
 - Point 50: Added a structured AI Transaction Query Brain for Local Data Vault transaction questions, including date ranges, account fuzzy matching, keyword/category filters, expense/money-added filters, latest-first sorting, and max-10 responses.
 - Point 50: Added AI `recent_transactions` handling so latest/last transaction questions return recent Local Data Vault transactions with account filtering and whole-rupee formatting.
 - Point 49: Added Google Sheet sync retry safety with richer `sync_queue.json` status, payload counts, success state, and pending retry support.

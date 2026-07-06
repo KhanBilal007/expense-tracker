@@ -55,13 +55,10 @@ class GoogleSheetSyncService {
         isLastSyncSuccessful: false,
       );
 
-      final response = await _client
-          .post(
-            Uri.parse(endpoint),
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 20));
+      final response = await _postJsonFollowingRedirects(
+        Uri.parse(endpoint),
+        jsonEncode(payload),
+      );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('http_${response.statusCode}');
@@ -123,12 +120,92 @@ class GoogleSheetSyncService {
     };
   }
 
+  Future<http.Response> _postJsonFollowingRedirects(
+    Uri uri,
+    String body,
+  ) async {
+    final response = await _postJson(uri, body);
+    debugPrint('GOOGLE_SHEET_SYNC_HTTP_STATUS=${response.statusCode}');
+
+    if (_isSuccess(response.statusCode)) {
+      debugPrint('GOOGLE_SHEET_SYNC_RESPONSE=${_safeResponse(response.body)}');
+      return response;
+    }
+
+    if (!_isRedirect(response.statusCode)) {
+      debugPrint('GOOGLE_SHEET_SYNC_RESPONSE=${_safeResponse(response.body)}');
+      return response;
+    }
+
+    final location = response.headers['location'];
+    if (location == null || location.trim().isEmpty) {
+      debugPrint('GOOGLE_SHEET_SYNC_FAILED=redirect_without_location');
+      throw Exception('redirect_without_location');
+    }
+
+    final redirectUri = uri.resolve(location.trim());
+    debugPrint('GOOGLE_SHEET_SYNC_REDIRECT=$redirectUri');
+
+    final redirectedResponse = await _getRedirect(redirectUri);
+    debugPrint(
+      'GOOGLE_SHEET_SYNC_REDIRECT_STATUS=${redirectedResponse.statusCode}',
+    );
+    debugPrint(
+      'GOOGLE_SHEET_SYNC_RESPONSE=${_safeResponse(redirectedResponse.body)}',
+    );
+
+    if (_isSuccess(redirectedResponse.statusCode)) {
+      return redirectedResponse;
+    }
+
+    throw Exception('http_${redirectedResponse.statusCode}');
+  }
+
+  Future<http.Response> _postJson(Uri uri, String body) async {
+    final request = http.Request('POST', uri)
+      ..headers['Content-Type'] = 'application/json'
+      ..followRedirects = false
+      ..body = body;
+
+    final streamedResponse =
+        await _client.send(request).timeout(const Duration(seconds: 20));
+    return http.Response.fromStream(streamedResponse);
+  }
+
+  Future<http.Response> _getRedirect(Uri uri) async {
+    final request = http.Request('GET', uri)..followRedirects = false;
+    final streamedResponse =
+        await _client.send(request).timeout(const Duration(seconds: 20));
+    return http.Response.fromStream(streamedResponse);
+  }
+
+  bool _isSuccess(int statusCode) {
+    return statusCode == 200 || statusCode == 201;
+  }
+
+  bool _isRedirect(int statusCode) {
+    return statusCode == 301 ||
+        statusCode == 302 ||
+        statusCode == 303 ||
+        statusCode == 307 ||
+        statusCode == 308;
+  }
+
   String _safeError(Object error) {
     final raw = error.toString();
     return raw
         .replaceAll(RegExp(r'https?://\S+'), '[endpoint]')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  String _safeResponse(String responseBody) {
+    final safe = responseBody
+        .replaceAll(RegExp(r'https?://\S+'), '[endpoint]')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (safe.length <= 220) return safe;
+    return '${safe.substring(0, 220)}...';
   }
 
   Map<String, int> _payloadCounts(Map<String, dynamic> payload) {

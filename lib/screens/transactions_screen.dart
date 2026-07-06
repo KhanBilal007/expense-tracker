@@ -537,7 +537,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 final desc = _resetTransactionIds.contains(txId)
                     ? 'Balance Reset'
                     : hasDescription
-                        ? rawDesc!
+                        ? rawDesc
                         : 'Undescribed';
                 final cat = t['category_name'] as String?;
                 return Card(

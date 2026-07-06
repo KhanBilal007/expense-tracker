@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 50 Analyze Fix applied: widget test now uses `ExpenseApp`, and the unnecessary transaction description non-null assertion was removed.
+- Point 48 / 49 redirect follow-up applied: Google Sheet sync now POSTs only to Apps Script `/exec`, then follows 302/303 redirect targets with GET.
 - Point 50 expanded: AI Agent now has a structured Transaction Query Brain for recent, date, account, category/keyword, expense, money-added, and combined transaction filters.
 - Point 50 applied: AI Agent now answers recent/latest transaction questions from Local Data Vault instead of treating them as keyword searches.
 - Point 49 applied: Google Sheet sync status now records payload counts, success state, and pending retry safety.

@@ -1,5 +1,41 @@
 # Thread Reports
 
+## 2026-07-06 - Point 50 Analyze Fix
+
+Role: QA / Flutter Analyze Fix Engineer
+
+Scope:
+
+- Patched `test/widget_test.dart`.
+- Patched `lib/screens/transactions_screen.dart`.
+- Confirmed the root app class is `ExpenseApp`.
+- Replaced the stale default `MyApp` counter test with a minimal `ExpenseApp` smoke test.
+- Removed an unnecessary non-null assertion from the All Transactions description fallback.
+
+App code status:
+
+- No AI transaction query logic, Google Sheet sync, Local Data Vault, Home, Reports, Accounts, AI icon, Dictate Mode, or unrelated app files were changed.
+
+## 2026-07-06 - Point 48 / 49 Google Sheet HTTP 302 Redirect Fix
+
+Role: Google Sheet Sync Reliability Engineer
+
+Scope:
+
+- Follow-up correction: redirected Apps Script `googleusercontent` URLs are now followed with GET, not POST.
+- The JSON payload is posted only to the original Apps Script `/exec` URL.
+- Patched `lib/services/google_sheet_sync_service.dart`.
+- Replaced the direct `_client.post(...)` call with `_postJsonFollowingRedirects(...)`.
+- Redirect handling now runs before any HTTP failure throw.
+- HTTP redirects read the `location` header and follow the redirected URL with GET.
+- Automatic redirects are disabled with `http.Request.followRedirects = false` so Apps Script redirects are handled explicitly.
+- Added debug logs: `GOOGLE_SHEET_SYNC_HTTP_STATUS=<status>`, `GOOGLE_SHEET_SYNC_REDIRECT=<location>`, `GOOGLE_SHEET_SYNC_REDIRECT_STATUS=<status>`, and `GOOGLE_SHEET_SYNC_RESPONSE=<safe short response>`.
+- Missing redirect location fails safely with `redirect_without_location`.
+
+App code status:
+
+- No Local Data Vault export, AI Agent, Google Sheet Apps Script, Home, Reports, Transactions, Accounts, AI icon, Dictate Mode, or unrelated app files were changed.
+
 ## 2026-07-06 - Point 50 Transaction Query Brain
 
 Role: AI Transaction Intelligence Engineer
