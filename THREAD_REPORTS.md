@@ -1,5 +1,60 @@
 # Thread Reports
 
+## 2026-07-06 - Point 39 Compact Bottom Navigation Trial
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart`.
+- Reduced the existing bottom navigation bar height from 64px to 54px.
+- Reduced bottom navigation border radius from 26px to 15px.
+- Reduced nav item height from 50px to 45px.
+- Reduced Home/Sync icons from 22px to 21px and AI image icon from 26px to 24px.
+- Reduced the icon-to-label gap from 2px to 1px and tightened label line height to keep labels visible.
+
+App code status:
+
+- Kept the existing bottom navigation style and did not convert nav items into cards.
+- No AI Agent logic, Local Data Vault, Google Sheet sync, Home calculations, Reports, Transactions logic, Accounts, Dictate Mode, or app features were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 39 Bottom Navigation Height Reduction
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart`.
+- Reduced the existing bottom navigation bar height from 76px to 64px.
+- Reduced nav item height from 58px to 50px and tightened vertical padding/gap.
+- Set Home/Sync nav icons to 22px and AI image icon to 26px so all three labels remain visible.
+- Increased Home scroll bottom padding from 96px to 112px so Recent Transactions does not sit behind the bottom navigation.
+
+App code status:
+
+- No bottom navigation card-style redesign was introduced.
+- No AI Agent logic, Local Data Vault, Google Sheet sync, Home calculations, Reports, Transactions logic, Accounts, Dictate Mode, or app features were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 39 AI Bottom Navigation Icon Fit
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart`.
+- Kept the existing bottom navigation design with Home, AI, and Sync.
+- Did not convert nav items into cards or redesign the bottom navigation.
+- Reduced AI image icon size to 28px inside a fixed `SizedBox`.
+- Reduced nav item icon size, vertical padding, gap, and label font size so labels have room.
+- Wrapped the bottom navigation in `SafeArea` with compact bottom spacing to keep labels above Android navigation.
+
+App code status:
+
+- No AI Agent logic, Local Data Vault, Google Sheet sync, Home calculations, Reports, Transactions, Accounts, AI icon asset, Dictate Mode, or app features were changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 51 Flutter Analyze Cleanup
 
 Role: QA / Flutter Analyze Cleanup Engineer

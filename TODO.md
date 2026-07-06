@@ -44,3 +44,6 @@
 41. [x] Point 50 Analyze Fix: Resolve `MyApp` widget test error and unnecessary transaction non-null assertion warning. Fixed 2026-07-06.
 42. [x] Point 49: Finish Google Sheet sync status and retry safety with HTTP status tracking. Fixed 2026-07-06.
 43. [x] Point 51: Clean safe Flutter analyze warnings without changing behavior. Fixed 2026-07-06.
+44. [x] Point 39: Fix AI bottom navigation icon size and label visibility without card-style redesign. Fixed 2026-07-06.
+45. [x] Point 39: Reduce bottom navigation height and prevent Recent Transactions overlap. Fixed 2026-07-06.
+46. [x] Point 39: Try compact 54px bottom navigation sizing. Fixed 2026-07-06.

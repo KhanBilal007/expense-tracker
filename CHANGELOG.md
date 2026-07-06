@@ -2,6 +2,9 @@
 
 ## 2026-07-05
 
+- Point 39: Tried a more compact Home bottom navigation at 54px height with 24px AI icon, 21px Home/Sync icons, and tighter label spacing.
+- Point 39: Reduced Home bottom navigation height from 76px to 64px and increased scroll bottom padding to prevent overlap with Recent Transactions.
+- Point 39: Adjusted AI bottom navigation icon to 28px and tightened existing nav label spacing to avoid overflow without redesigning the bar.
 - Point 51: Cleaned safe Flutter analyze warnings by replacing deprecated `DropdownButtonFormField.value` and `Color.withOpacity(...)` usages.
 - Point 49: Finished Google Sheet sync status and retry safety with `lastHttpStatus`, retry result logging, and final-status recording.
 - Point 50 Analyze Fix: Updated the widget smoke test to use `ExpenseApp` and removed an unnecessary transaction description non-null assertion.

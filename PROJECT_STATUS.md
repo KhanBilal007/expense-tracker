@@ -19,6 +19,9 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 39 compact nav trial applied: bottom navigation height is now 54px with tighter icon, label, and gap sizing to reduce Recent Transactions overlap risk.
+- Point 39 height follow-up applied: Home bottom navigation height was reduced and scroll bottom padding was increased so the bar no longer overlaps Recent Transactions.
+- Point 39 follow-up applied: AI bottom navigation icon now fits the existing nav slot and labels remain visible without card-style redesign.
 - Point 51 applied: Flutter analyze cleanup replaced deprecated safe UI APIs and reduced lint warnings without feature changes.
 - Point 49 completed: Google Sheet sync status now includes final HTTP status and retry reports success or pending state.
 - Point 50 Analyze Fix applied: widget test now uses `ExpenseApp`, and the unnecessary transaction description non-null assertion was removed.

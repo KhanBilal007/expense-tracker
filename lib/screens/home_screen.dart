@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, constraints) {
                       return SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 96),
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 112),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                               minHeight: constraints.maxHeight - 112),
@@ -789,33 +789,36 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _bottomNav(BuildContext context) {
-    return Container(
-      height: 86,
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      decoration: BoxDecoration(
-        color: _card2,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 18,
-              offset: const Offset(0, 8))
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.home_rounded, 'Home', _blue, () {}),
-          _navItem(
-              Icons.smart_toy_outlined,
-              'AI',
-              _textSub,
-              () => Navigator.pushNamed(context, AppRoutes.ai)
-                  .then((_) => _load()),
-              assetPath: _aiIconAsset),
-          _navItem(Icons.sync_rounded, 'Sync', _textSub, () => _load()),
-        ],
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: _card2,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 8))
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navItem(Icons.home_rounded, 'Home', _blue, () {}),
+            _navItem(
+                Icons.smart_toy_outlined,
+                'AI',
+                _textSub,
+                () => Navigator.pushNamed(context, AppRoutes.ai)
+                    .then((_) => _load()),
+                assetPath: _aiIconAsset),
+            _navItem(Icons.sync_rounded, 'Sync', _textSub, () => _load()),
+          ],
+        ),
       ),
     );
   }
@@ -829,8 +832,8 @@ class _HomeScreenState extends State<HomeScreen> {
       borderRadius: BorderRadius.circular(20),
       child: Container(
         width: 78,
-        height: 64,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        height: 45,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color:
               active ? _blue.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.05),
@@ -843,23 +846,28 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (assetPath == null)
-              Icon(icon, color: color, size: 26)
+              Icon(icon, color: color, size: 21)
             else
-              Image.asset(
-                assetPath,
-                width: 30,
-                height: 30,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) =>
-                    Icon(icon, color: color, size: 30),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Image.asset(
+                  assetPath,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      Icon(icon, color: color, size: 21),
+                ),
               ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 1),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+                    color: color,
+                    fontSize: 11,
+                    height: 1.0,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
