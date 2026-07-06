@@ -64,6 +64,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Color get _verticalDividerColor => _isDarkMode
       ? Colors.white.withValues(alpha: 0.06)
       : const Color(0xFFE5E7EB);
+  Color get _navBg => _card2;
+  Color get _navBorder => _cardBorder;
+  Color get _navShadow => _isDarkMode
+      ? Colors.black.withValues(alpha: 0.45)
+      : Colors.black.withValues(alpha: 0.08);
+  Color get _navInactiveBg => _isDarkMode
+      ? Colors.white.withValues(alpha: 0.05)
+      : const Color(0xFFF1F5F9);
 
   @override
   void initState() {
@@ -873,12 +881,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: 54,
         decoration: BoxDecoration(
-          color: _darkCard2,
+          color: _navBg,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: _navBorder),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: _navShadow,
                 blurRadius: 18,
                 offset: const Offset(0, 8))
           ],
@@ -890,11 +898,11 @@ class _HomeScreenState extends State<HomeScreen> {
             _navItem(
                 Icons.smart_toy_outlined,
                 'AI',
-                _darkTextSub,
+                _textSub,
                 () => Navigator.pushNamed(context, AppRoutes.ai)
                     .then((_) => _load()),
                 assetPath: _aiIconAsset),
-            _navItem(Icons.sync_rounded, 'Sync', _darkTextSub, _syncPhonePe),
+            _navItem(Icons.sync_rounded, 'Sync', _textSub, _syncPhonePe),
           ],
         ),
       ),
@@ -914,7 +922,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color:
-              active ? _blue.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.05),
+              active ? _blue.withValues(alpha: 0.18) : _navInactiveBg,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: active ? _blue.withValues(alpha: 0.42) : Colors.transparent,

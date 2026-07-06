@@ -1,5 +1,49 @@
 # Thread Reports
 
+## 2026-07-06 - Point 53 Home Base Light Mode Fix
+
+Role: Frontend Engineer
+
+Scope:
+
+- Applied only the base light-mode theme/color changes in `lib/screens/home_screen.dart`.
+- Added theme-aware Home bottom navigation getters: `_navBg`, `_navBorder`, `_navShadow`, and `_navInactiveBg`.
+- Updated `_bottomNav` to use `_navBg`, `_navBorder`, and `_navShadow`.
+- Updated AI and Sync nav item text/icon color from `_darkTextSub` to `_textSub`.
+- Updated `_navItem` inactive background from the dark-only white alpha color to `_navInactiveBg`.
+- Did not apply the optional 3D / beautified button treatment.
+
+Dimension and behavior status:
+
+- Bottom nav height remains `54`.
+- Nav item size remains `78 x 45`.
+- AI image size remains `24 x 24`.
+- Label font size remains `11`.
+- Padding, radius, icon sizes, spacing, card heights, layout, and functionality were not changed.
+
+App code status:
+
+- No AI Agent, Local Data Vault, Google Sheet sync, PhonePe PDF sync, Reports, Transactions, Accounts, Settings sync, Dictate Mode, or mic button changes were made.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 53 Home Dark Mode Code Package
+
+Role: Frontend Engineer
+
+Scope:
+
+- Inspected `lib/screens/home_screen.dart`, `lib/main.dart`, and `pubspec.yaml`.
+- Created `docs/HOME_SCREEN_DARK_MODE_CODE_PACKAGE.md` for Claude.
+- Included Home Flutter code sections for theme constants/getters, background, header, accounts, summary cards, quick actions, recent transactions, bottom navigation, shared cards, and app theme.
+- Documented current dark-mode color values, background, card colors, text colors, icon colors, bottom navigation colors, selected/unselected nav colors, and asset paths.
+- Documented fixed dimensions, spacing, card heights, font sizes, nav height, paddings, margins, gaps, border radius, and icon sizes that must not change.
+- Added a Claude-ready prompt instructing Claude to change colors/theme only.
+
+App code status:
+
+- No Flutter app code, Home screen code, theme code, AI Agent, Local Data Vault, Google Sheet sync, Transactions, Reports, Accounts, PDF Sync, or bottom navigation behavior was changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 55 Resume
 
 Role: Settings + Sync Configuration Engineer

@@ -2,6 +2,8 @@
 
 ## 2026-07-05
 
+- Point 53: Applied the base Home light-mode theme fix for bottom navigation colors only; optional 3D/button styling was not applied and dimensions were unchanged.
+- Point 53: Added `docs/HOME_SCREEN_DARK_MODE_CODE_PACKAGE.md` with Home dark-mode Flutter code sections, color inventory, fixed dimensions, assets, and a Claude-ready light-theme prompt.
 - Point 55 Resume: Inspected existing Settings sync controls and fixed the remaining endpoint/status mismatch while preserving the Point 56 single vault-based Google Sheet sync path.
 - Point 56 Follow-up / 55 Minimal Config: Restored Google Sheet syncing by configuring the Apps Script `/exec` endpoint in `SyncSettingsService` for the single Local Data Vault based path.
 - Point 56: Consolidated Google Sheet syncing into the single Local Data Vault -> `GoogleSheetSyncService` path and made legacy per-transaction `SheetsService` calls no-op compatibility calls.

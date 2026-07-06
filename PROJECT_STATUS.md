@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 53 base light-mode fix applied: Home bottom navigation now uses theme-aware nav background, border, shadow, inactive item background, and light-readable AI/Sync label colors without dimension/layout changes.
+- Point 53 documentation package created: `docs/HOME_SCREEN_DARK_MODE_CODE_PACKAGE.md` captures Home dark-mode Flutter code, colors, fixed dimensions, assets, and a Claude-ready light-theme prompt.
 - Point 55 resume completed: existing Settings-based Google Sheet controls were inspected and the remaining endpoint/status mismatch was fixed without disturbing Point 56's single vault-based sync path.
 - Point 56 follow-up / 55 minimal config applied: the single vault-based Google Sheet sync path now has a configured Apps Script `/exec` endpoint in `SyncSettingsService`.
 - Point 56 applied: Google Sheet sync is consolidated into one active Local Data Vault based path; legacy `SheetsService` calls are compatibility no-ops and cannot send per-transaction rows.

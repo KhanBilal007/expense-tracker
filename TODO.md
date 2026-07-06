@@ -62,3 +62,5 @@
 59. [x] Point 56: Consolidate Google Sheet sync into one Local Data Vault based path. Fixed 2026-07-06.
 60. [x] Point 56 Follow-up / 55 Minimal Config: Restore vault-based Google Sheet endpoint configuration. Fixed 2026-07-06.
 61. [x] Point 55 Resume: Finish Settings sync status/config behavior without disturbing Point 56. Fixed 2026-07-06.
+62. [x] Point 53: Prepare Home dark-mode code/detail package for Claude light-theme conversion. Fixed 2026-07-06.
+63. [x] Point 53: Apply Home base light-mode theme fix without optional 3D styling. Fixed 2026-07-06.
