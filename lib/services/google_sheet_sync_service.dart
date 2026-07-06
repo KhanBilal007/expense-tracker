@@ -25,6 +25,7 @@ class GoogleSheetSyncService {
     debugPrint('GOOGLE_SHEET_SYNC_STARTED');
     Map<String, dynamic>? payload;
     Map<String, int>? payloadCounts;
+    int? lastHttpStatus;
 
     try {
       final endpoint = await _settings.getGoogleSheetEndpoint();
@@ -59,6 +60,7 @@ class GoogleSheetSyncService {
         Uri.parse(endpoint),
         jsonEncode(payload),
       );
+      lastHttpStatus = response.statusCode;
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception('http_${response.statusCode}');
@@ -71,9 +73,13 @@ class GoogleSheetSyncService {
         pendingCount: 0,
         lastPayloadCounts: payloadCounts,
         isLastSyncSuccessful: true,
+        lastHttpStatus: lastHttpStatus,
       );
       debugPrint('GOOGLE_SHEET_SYNC_SUCCESS');
     } catch (e) {
+      if (e is _GoogleSheetSyncException) {
+        lastHttpStatus ??= e.statusCode;
+      }
       final safeError = _safeError(e);
       final existingStatus = await _vault.readGoogleSheetSyncStatus();
       final existingPendingCount =
@@ -85,22 +91,33 @@ class GoogleSheetSyncService {
         lastError: safeError,
         lastPayloadCounts: payloadCounts,
         isLastSyncSuccessful: false,
+        lastHttpStatus: lastHttpStatus,
       );
       debugPrint('GOOGLE_SHEET_SYNC_FAILED=$safeError');
     }
   }
 
-  Future<void> retryPendingGoogleSheetSync() async {
+  Future<bool> retryPendingGoogleSheetSync() async {
     final status = await _vault.readGoogleSheetSyncStatus();
     final pendingCount = (status['pendingCount'] as num?)?.toInt() ?? 0;
 
     if (pendingCount <= 0) {
       debugPrint('GOOGLE_SHEET_SYNC_RETRY_SKIPPED=no_pending_sync');
-      return;
+      return false;
     }
 
     debugPrint('GOOGLE_SHEET_SYNC_RETRY_STARTED');
     await syncFromLocalVault();
+
+    final updatedStatus = await _vault.readGoogleSheetSyncStatus();
+    final success = updatedStatus['isLastSyncSuccessful'] == true &&
+        ((updatedStatus['pendingCount'] as num?)?.toInt() ?? 0) == 0;
+    debugPrint(
+      success
+          ? 'GOOGLE_SHEET_SYNC_RETRY_SUCCESS'
+          : 'GOOGLE_SHEET_SYNC_RETRY_PENDING',
+    );
+    return success;
   }
 
   Future<Map<String, dynamic>> buildPayload() async {
@@ -140,7 +157,10 @@ class GoogleSheetSyncService {
     final location = response.headers['location'];
     if (location == null || location.trim().isEmpty) {
       debugPrint('GOOGLE_SHEET_SYNC_FAILED=redirect_without_location');
-      throw Exception('redirect_without_location');
+      throw _GoogleSheetSyncException(
+        'redirect_without_location',
+        statusCode: response.statusCode,
+      );
     }
 
     final redirectUri = uri.resolve(location.trim());
@@ -154,11 +174,7 @@ class GoogleSheetSyncService {
       'GOOGLE_SHEET_SYNC_RESPONSE=${_safeResponse(redirectedResponse.body)}',
     );
 
-    if (_isSuccess(redirectedResponse.statusCode)) {
-      return redirectedResponse;
-    }
-
-    throw Exception('http_${redirectedResponse.statusCode}');
+    return redirectedResponse;
   }
 
   Future<http.Response> _postJson(Uri uri, String body) async {
@@ -221,4 +237,14 @@ class GoogleSheetSyncService {
   int _count(Object? value) {
     return value is List ? value.length : 0;
   }
+}
+
+class _GoogleSheetSyncException implements Exception {
+  final String message;
+  final int? statusCode;
+
+  const _GoogleSheetSyncException(this.message, {this.statusCode});
+
+  @override
+  String toString() => message;
 }

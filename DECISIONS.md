@@ -28,3 +28,4 @@
 24. Google Sheet sync writes a backup/reporting copy of Local Data Vault snapshots and must not replace SQLite as the source of truth.
 25. For Point 48, the user-approved deployed Apps Script Web App `/exec` URL is configured in Flutter sync settings; no Google API key, OAuth secret, or service-account file is used.
 26. Point 49: Google Sheet sync failures must never block local data writes; failures are recorded in `sync_queue.json` and retried from the latest Local Data Vault snapshot.
+27. Point 49: Google Sheet sync retry should use the latest Local Data Vault snapshot and clear pending state only after confirmed success.

@@ -92,6 +92,7 @@ class LocalDataVaultService {
     String? lastError,
     Map<String, int>? lastPayloadCounts,
     bool? isLastSyncSuccessful,
+    int? lastHttpStatus,
   }) async {
     final dir = await getVaultDirectory();
     final existing = await readSyncQueue();
@@ -118,6 +119,8 @@ class LocalDataVaultService {
         'isLastSyncSuccessful': isLastSyncSuccessful ??
             existingGoogleSheetSync['isLastSyncSuccessful'] ??
             false,
+        'lastHttpStatus':
+            lastHttpStatus ?? existingGoogleSheetSync['lastHttpStatus'],
       },
     });
   }
@@ -145,6 +148,7 @@ class LocalDataVaultService {
             'endpointConfigured': false,
             'lastPayloadCounts': {},
             'isLastSyncSuccessful': false,
+            'lastHttpStatus': null,
           },
     });
   }

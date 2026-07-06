@@ -19,6 +19,7 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 49 completed: Google Sheet sync status now includes final HTTP status and retry reports success or pending state.
 - Point 50 Analyze Fix applied: widget test now uses `ExpenseApp`, and the unnecessary transaction description non-null assertion was removed.
 - Point 48 / 49 redirect follow-up applied: Google Sheet sync now POSTs only to Apps Script `/exec`, then follows 302/303 redirect targets with GET.
 - Point 50 expanded: AI Agent now has a structured Transaction Query Brain for recent, date, account, category/keyword, expense, money-added, and combined transaction filters.
@@ -137,6 +138,7 @@ Expense Tracker Flutter app.
 
 ## Latest Google Sheet Sync Update
 
+- Point 49 completed retry/status safety with `lastHttpStatus`, `GOOGLE_SHEET_SYNC_RETRY_SUCCESS`, and `GOOGLE_SHEET_SYNC_RETRY_PENDING`.
 - Point 49 added richer sync status tracking: `lastPayloadCounts` and `isLastSyncSuccessful`.
 - Failed Google Sheet syncs now keep local vault data intact, preserve a pending retry count, and continue logging `GOOGLE_SHEET_SYNC_FAILED=<safe error>`.
 - Added `retryPendingGoogleSheetSync()` for safe retry of the latest Local Data Vault snapshot when pending sync exists.

@@ -2,6 +2,7 @@
 
 ## 2026-07-05
 
+- Point 49: Finished Google Sheet sync status and retry safety with `lastHttpStatus`, retry result logging, and final-status recording.
 - Point 50 Analyze Fix: Updated the widget smoke test to use `ExpenseApp` and removed an unnecessary transaction description non-null assertion.
 - Point 48 / 49 Follow-up: Corrected Apps Script redirect handling so POST is sent only to `/exec` and redirected `googleusercontent` URLs are followed with GET.
 - Point 48 / 49 Follow-up: Fixed Google Sheet sync HTTP 302 handling by adding a central redirect-aware JSON POST method before failure checks.

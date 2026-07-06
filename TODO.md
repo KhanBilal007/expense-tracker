@@ -42,3 +42,4 @@
 39. [x] Point 48 / 49 Follow-up: Fix Google Sheet sync HTTP 302 redirect failure. Fixed 2026-07-06.
 40. [x] Point 48 / 49 Follow-up: Use GET, not POST, for Apps Script 302/303 redirect target. Fixed 2026-07-06.
 41. [x] Point 50 Analyze Fix: Resolve `MyApp` widget test error and unnecessary transaction non-null assertion warning. Fixed 2026-07-06.
+42. [x] Point 49: Finish Google Sheet sync status and retry safety with HTTP status tracking. Fixed 2026-07-06.
