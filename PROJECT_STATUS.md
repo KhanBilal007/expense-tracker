@@ -19,6 +19,7 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 45 applied: Google Sheet sync service now reads Local Data Vault and safely posts to a configurable Apps Script endpoint.
 - Point 46 refined: AI vault account matching now handles spelling mistakes with staged fuzzy confidence rules.
 - Point 46 applied: AI Agent finance answers now read from Local Data Vault through a vault reader service.
 - Point 44 verification applied: Local Data Vault export now prints path, file existence, and record count debug logs.
@@ -126,6 +127,19 @@ Expense Tracker Flutter app.
 - Missing or unreadable vault data returns a safe message instead of guessing.
 - AI remains read-only and does not create, edit, delete, reset, transfer, sync, or modify data.
 - Dictate Mode, mic UI, AI icon, Google Sheet API, and external AI/API integrations were not added.
+
+## Latest Google Sheet Sync Update
+
+- Added `lib/services/google_sheet_sync_service.dart`.
+- Added `lib/services/sync_settings_service.dart`.
+- Google Sheet sync reads Local Data Vault JSON files and prepares one payload for a future Google Apps Script Web App endpoint.
+- Endpoint is configurable through `SyncSettingsService` and defaults to empty.
+- If endpoint is empty, sync prints `GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured` and does not crash.
+- Added sync payload fields: `schemaVersion`, `exportedAt`, `accounts`, `transactions`, `expenses`, `moneyAdded`, `transfers`, `summaries`, and `metadata`.
+- Added planned tabs: Accounts, Transactions, Expenses, MoneyAdded, Transfers, Summaries, Metadata, and SyncLog.
+- Added sync status in `sync_queue.json`: `lastAttemptAt`, `lastSuccessAt`, `pendingCount`, `lastError`, and `endpointConfigured`.
+- Local Data Vault export now triggers safe Google Sheet sync after successful export.
+- No Google credentials, API keys, OAuth secrets, service-account JSON, Google Sheet API package, or external AI/API was added.
 
 ## Latest AI Tab UI Update
 

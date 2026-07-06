@@ -5,6 +5,7 @@ import 'package:sqflite/sqlite_api.dart' show ConflictAlgorithm;
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import '../services/google_sheet_sync_service.dart';
 import '../services/local_data_vault_service.dart';
 
 class DatabaseHelper {
@@ -134,6 +135,7 @@ class DatabaseHelper {
     try {
       final snapshot = await _buildLocalDataVaultSnapshot();
       await LocalDataVaultService().exportAll(snapshot);
+      await GoogleSheetSyncService().syncFromLocalVault();
     } catch (e, st) {
       debugPrint('[LocalDataVault] export failed: $e');
       debugPrint('$st');

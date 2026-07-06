@@ -59,6 +59,10 @@ class LocalDataVaultService {
     return _readJsonList(moneyAddedFile);
   }
 
+  Future<List<Map<String, dynamic>>> readTransfers() {
+    return _readJsonList(transfersFile);
+  }
+
   Future<Map<String, dynamic>> readSummaries() {
     return _readJsonMap(summariesFile);
   }
@@ -71,17 +75,59 @@ class LocalDataVaultService {
     return _readJsonMap(syncQueueFile);
   }
 
+  Future<void> updateGoogleSheetSyncStatus({
+    required String lastAttemptAt,
+    String? lastSuccessAt,
+    required bool endpointConfigured,
+    required int pendingCount,
+    String? lastError,
+  }) async {
+    final dir = await getVaultDirectory();
+    final existing = await readSyncQueue();
+    final pendingItems = existing['pendingItems'] is List
+        ? existing['pendingItems'] as List
+        : <dynamic>[];
+    final existingGoogleSheetSync = existing['googleSheetSync'] is Map
+        ? Map<String, dynamic>.from(existing['googleSheetSync'] as Map)
+        : <String, dynamic>{};
+
+    await _writeJsonFile(dir, syncQueueFile, {
+      'schemaVersion': 1,
+      'pendingItems': pendingItems,
+      'lastExportAt': existing['lastExportAt'] ?? DateTime.now().toIso8601String(),
+      'target': 'google_sheets_future',
+      'googleSheetSync': {
+        'lastAttemptAt': lastAttemptAt,
+        'lastSuccessAt': lastSuccessAt ?? existingGoogleSheetSync['lastSuccessAt'],
+        'pendingCount': pendingCount,
+        'lastError': lastError,
+        'endpointConfigured': endpointConfigured,
+      },
+    });
+  }
+
   Future<void> _ensureSyncQueueFile(Directory dir) async {
     final existing = await readSyncQueue();
     final pendingItems = existing['pendingItems'] is List
         ? existing['pendingItems'] as List
         : <dynamic>[];
+    final existingGoogleSheetSync = existing['googleSheetSync'] is Map
+        ? Map<String, dynamic>.from(existing['googleSheetSync'] as Map)
+        : null;
 
     await _writeJsonFile(dir, syncQueueFile, {
       'schemaVersion': 1,
       'pendingItems': pendingItems,
       'lastExportAt': DateTime.now().toIso8601String(),
       'target': 'google_sheets_future',
+      'googleSheetSync': existingGoogleSheetSync ??
+          {
+            'lastAttemptAt': null,
+            'lastSuccessAt': null,
+            'pendingCount': pendingItems.length,
+            'lastError': null,
+            'endpointConfigured': false,
+          },
     });
   }
 

@@ -19,3 +19,8 @@
 15. Google Sheet API integration is not part of the Local Data Vault setup until explicitly approved later.
 16. AI finance answers should use Local Data Vault JSON records as the main readable data source where possible.
 17. AI must treat Local Data Vault access as read-only and must not create, edit, delete, reset, transfer, sync, or modify data.
+18. For Google Sheet sync, SQLite remains the source of truth and Local Data Vault remains the local readable mirror.
+19. Google Sheet is a backup/reporting copy and should not become the app's primary data source.
+20. Google Sheet sync must use a configurable endpoint and must not hardcode credentials, API keys, OAuth secrets, or service-account JSON.
+21. If no Google Sheet endpoint is configured, sync must skip safely without crashing the app.
+22. AI Agent continues reading Local Data Vault and should not read Google Sheet directly.

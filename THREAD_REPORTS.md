@@ -1,5 +1,53 @@
 # Thread Reports
 
+## 2026-07-06 - Point 45 Google Sheet Sync Preparation
+
+Role: Google Sheet Sync Engineer
+
+Scope:
+
+- Added `lib/services/google_sheet_sync_service.dart`.
+- Added `lib/services/sync_settings_service.dart`.
+- Patched `lib/services/local_data_vault_service.dart`.
+- Patched `lib/db/database_helper.dart`.
+- Google Sheet sync now reads Local Data Vault JSON records and builds one payload for a configurable Google Apps Script Web App endpoint.
+- Endpoint defaults to empty and is read through `SyncSettingsService`.
+- Local Data Vault export now triggers safe Google Sheet sync after successful export.
+- `sync_queue.json` now tracks `lastAttemptAt`, `lastSuccessAt`, `pendingCount`, `lastError`, and `endpointConfigured`.
+
+Payload:
+
+- `schemaVersion`
+- `exportedAt`
+- `accounts`
+- `transactions`
+- `expenses`
+- `moneyAdded`
+- `transfers`
+- `summaries`
+- `metadata`
+
+Debug logs:
+
+- `GOOGLE_SHEET_SYNC_STARTED`
+- `GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured`
+- `GOOGLE_SHEET_SYNC_SUCCESS`
+- `GOOGLE_SHEET_SYNC_FAILED=<safe error>`
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Trigger a Local Data Vault export by opening the app or changing account/transaction data.
+- With no endpoint configured, confirm debug console prints `GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured`.
+- Confirm `sync_queue.json` includes `googleSheetSync` status.
+
+App code status:
+
+- No credentials, API keys, OAuth secrets, service-account JSON, Google API package, or external AI/API were added.
+- AI still reads Local Data Vault, not Google Sheet.
+- Dictate Mode, mic button, AI icon, Home, Reports, Transactions, Accounts, reset logic, PDF sync behavior, calculations, stored records, and write flows were not changed.
+
 ## 2026-07-05 - Point 46 Fuzzy Account Matching
 
 Role: AI Data Integration Engineer
