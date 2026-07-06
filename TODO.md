@@ -36,3 +36,6 @@
 33. [x] Prepare Google Sheet auto-sync from Local Data Vault. Fixed 2026-07-06.
 34. [x] Create Google Apps Script receiver code and Google Sheet sync setup documentation. Fixed 2026-07-06.
 35. [x] Point 48: Configure deployed Google Apps Script Web App endpoint for Google Sheet auto-sync. Fixed 2026-07-06.
+36. [x] Point 49: Add Google Sheet sync status and retry safety. Fixed 2026-07-06.
+37. [x] Point 50: Fix AI latest/recent transaction questions from Local Data Vault. Fixed 2026-07-06.
+38. [x] Point 50: Build complete AI Transaction Query Brain for Local Data Vault records. Fixed 2026-07-06.

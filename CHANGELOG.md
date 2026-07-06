@@ -2,6 +2,9 @@
 
 ## 2026-07-05
 
+- Point 50: Added a structured AI Transaction Query Brain for Local Data Vault transaction questions, including date ranges, account fuzzy matching, keyword/category filters, expense/money-added filters, latest-first sorting, and max-10 responses.
+- Point 50: Added AI `recent_transactions` handling so latest/last transaction questions return recent Local Data Vault transactions with account filtering and whole-rupee formatting.
+- Point 49: Added Google Sheet sync retry safety with richer `sync_queue.json` status, payload counts, success state, and pending retry support.
 - Point 48: Configured the deployed Google Apps Script Web App `/exec` endpoint for Google Sheet sync and kept safe failure/success logging.
 - Point 47: Added Google Apps Script receiver documentation and setup guide for writing Local Data Vault payloads into Google Sheet tabs.
 - Point 45: Added safe Google Sheet sync preparation from Local Data Vault with a configurable Apps Script endpoint, payload builder, debug logs, and `sync_queue.json` status tracking.

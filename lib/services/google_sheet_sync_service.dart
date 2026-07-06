@@ -23,27 +23,36 @@ class GoogleSheetSyncService {
   Future<void> syncFromLocalVault() async {
     final attemptAt = DateTime.now().toIso8601String();
     debugPrint('GOOGLE_SHEET_SYNC_STARTED');
+    Map<String, dynamic>? payload;
+    Map<String, int>? payloadCounts;
 
     try {
       final endpoint = await _settings.getGoogleSheetEndpoint();
       final endpointConfigured = endpoint.isNotEmpty;
+      final existingStatus = await _vault.readGoogleSheetSyncStatus();
+      final existingPendingCount =
+          (existingStatus['pendingCount'] as num?)?.toInt() ?? 0;
 
       if (!endpointConfigured) {
         await _vault.updateGoogleSheetSyncStatus(
           lastAttemptAt: attemptAt,
           endpointConfigured: false,
-          pendingCount: 0,
+          pendingCount: existingPendingCount,
           lastError: 'no_endpoint_configured',
+          isLastSyncSuccessful: false,
         );
         debugPrint('GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured');
         return;
       }
 
-      final payload = await buildPayload();
+      payload = await buildPayload();
+      payloadCounts = _payloadCounts(payload);
       await _vault.updateGoogleSheetSyncStatus(
         lastAttemptAt: attemptAt,
         endpointConfigured: true,
-        pendingCount: 0,
+        pendingCount: existingPendingCount,
+        lastPayloadCounts: payloadCounts,
+        isLastSyncSuccessful: false,
       );
 
       final response = await _client
@@ -63,18 +72,38 @@ class GoogleSheetSyncService {
         lastSuccessAt: DateTime.now().toIso8601String(),
         endpointConfigured: true,
         pendingCount: 0,
+        lastPayloadCounts: payloadCounts,
+        isLastSyncSuccessful: true,
       );
       debugPrint('GOOGLE_SHEET_SYNC_SUCCESS');
     } catch (e) {
       final safeError = _safeError(e);
+      final existingStatus = await _vault.readGoogleSheetSyncStatus();
+      final existingPendingCount =
+          (existingStatus['pendingCount'] as num?)?.toInt() ?? 0;
       await _vault.updateGoogleSheetSyncStatus(
         lastAttemptAt: attemptAt,
         endpointConfigured: await _settings.isGoogleSheetEndpointConfigured(),
-        pendingCount: 1,
+        pendingCount: existingPendingCount > 0 ? existingPendingCount : 1,
         lastError: safeError,
+        lastPayloadCounts: payloadCounts,
+        isLastSyncSuccessful: false,
       );
       debugPrint('GOOGLE_SHEET_SYNC_FAILED=$safeError');
     }
+  }
+
+  Future<void> retryPendingGoogleSheetSync() async {
+    final status = await _vault.readGoogleSheetSyncStatus();
+    final pendingCount = (status['pendingCount'] as num?)?.toInt() ?? 0;
+
+    if (pendingCount <= 0) {
+      debugPrint('GOOGLE_SHEET_SYNC_RETRY_SKIPPED=no_pending_sync');
+      return;
+    }
+
+    debugPrint('GOOGLE_SHEET_SYNC_RETRY_STARTED');
+    await syncFromLocalVault();
   }
 
   Future<Map<String, dynamic>> buildPayload() async {
@@ -100,5 +129,19 @@ class GoogleSheetSyncService {
         .replaceAll(RegExp(r'https?://\S+'), '[endpoint]')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  Map<String, int> _payloadCounts(Map<String, dynamic> payload) {
+    return {
+      'accounts': _count(payload['accounts']),
+      'transactions': _count(payload['transactions']),
+      'expenses': _count(payload['expenses']),
+      'moneyAdded': _count(payload['moneyAdded']),
+      'transfers': _count(payload['transfers']),
+    };
+  }
+
+  int _count(Object? value) {
+    return value is List ? value.length : 0;
   }
 }

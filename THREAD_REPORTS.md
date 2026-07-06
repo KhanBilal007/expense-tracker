@@ -1,5 +1,120 @@
 # Thread Reports
 
+## 2026-07-06 - Point 50 Transaction Query Brain
+
+Role: AI Transaction Intelligence Engineer
+
+Scope:
+
+- Added `lib/services/ai_transaction_query_engine.dart`.
+- Patched `lib/services/ai_vault_reader_service.dart`.
+- Patched `lib/screens/ai_screen.dart`.
+- AI transaction questions now route through a structured read-only query engine instead of only keyword search.
+- Supported transaction intents include recent transactions, transactions by date, transactions by date range, transactions by account, category/keyword search, expense transactions, money-added transactions, and combined filters.
+- Date parser supports today, yesterday, X days ago, this week, last week, this month, last month, 5 July, 05/07/2026, 5-7-2026, and simple between X and Y ranges.
+- Count parser supports one, two, three, four, five, ten, and digit counts, with a maximum of 10 visible rows.
+- Account filtering reuses existing fuzzy account matching from Local Data Vault account records.
+- Transaction sorting is latest first using date, transactionDate, createdAt, updatedAt, and transaction id fallback.
+- Response format shows date, account, type, whole-rupee amount, and description/category fallback.
+
+Transaction test question set:
+
+1. last transaction
+2. last 3 transactions
+3. last three transactions
+4. latest 5 transactions
+5. recent transactions
+6. show recent transactions
+7. transactions of yesterday
+8. give transaction of yesterday
+9. yesterday transactions
+10. today transactions
+11. transactions on 05/07/2026
+12. transactions on 5 July
+13. transactions 20 days ago
+14. transactions this month
+15. transactions last month
+16. transactions this week
+17. transactions last week
+18. transactions between 1 July and 5 July
+19. transactions of Mahmood Bhai
+20. transactions from idris
+21. show Mahmood Bhai transactions
+22. last 5 transactions of Mahmod Bhai
+23. recent transactions from idrees
+24. latest transactions for Mehmood Bai
+25. show food transactions
+26. grocery transactions
+27. find phonepe transaction
+28. show petrol expenses
+29. transactions containing rent
+30. show expenses
+31. last 5 expenses
+32. expenses yesterday
+33. expenses of Mahmood Bhai
+34. food expenses this month
+35. show money added
+36. last money added
+37. money added yesterday
+38. money added to idris this month
+39. last 3 expenses of Mahmood Bhai
+40. food expenses yesterday
+41. money added to Mahmod Bhai last month
+42. transactions of idrees this month
+43. last 5 transactions from Mahmood Bhai
+44. show ten transactions
+45. latest 10 expenses
+46. transactions between 05/07/2026 and 06/07/2026
+47. income transactions last week
+48. show travel transactions for Mahmood Bhai
+49. transactions for unclear account name
+50. transactions on unclear date
+
+App code status:
+
+- AI remains read-only and uses Local Data Vault records only.
+- No Google Sheet sync, Local Data Vault export structure, Home, Reports, Transactions UI, Accounts, AI icon, Dictate Mode, finance calculations outside AI read-only query logic, or write flows were changed.
+
+## 2026-07-06 - Point 50 AI Recent Transactions Query
+
+Role: AI Transaction Query Engineer
+
+Scope:
+
+- Patched `lib/services/ai_vault_reader_service.dart`.
+- Patched `lib/screens/ai_screen.dart`.
+- Added `recent_transactions` intent support through `_AiIntent.recentTransactions`.
+- AI now detects questions like `last three transactions`, `last 3 transactions`, `latest 3 transactions`, `recent transactions`, `show last transaction`, and `last ten transactions`.
+- Added number parsing for digits and words: one, two, three, four, five, and ten.
+- Default for `recent transactions` is latest 5, with a maximum of 10.
+- Recent transactions are read from Local Data Vault `transactions.json`, sorted by latest date first and transaction id as fallback.
+- Account-specific recent transaction questions reuse existing fuzzy account matching and clarification behavior.
+- Response format shows date, account, type, whole-rupee amount, and description/category fallback.
+
+App code status:
+
+- AI remains read-only.
+- No Google Sheet sync, Local Data Vault export structure, Home, Reports, Transactions UI, Accounts, AI icon, Dictate Mode, finance calculations, or write flows were changed.
+
+## 2026-07-06 - Point 49 Google Sheet Sync Retry Safety
+
+Role: Google Sheet Sync Reliability Engineer
+
+Scope:
+
+- Patched `lib/services/google_sheet_sync_service.dart`.
+- Patched `lib/services/local_data_vault_service.dart`.
+- Added richer `googleSheetSync` status fields in `sync_queue.json`.
+- Status now tracks `lastAttemptAt`, `lastSuccessAt`, `lastError`, `pendingCount`, `endpointConfigured`, `lastPayloadCounts`, and `isLastSyncSuccessful`.
+- Failed syncs keep the app safe, keep Local Data Vault data saved, preserve a pending retry count, and log `GOOGLE_SHEET_SYNC_FAILED=<safe error>`.
+- Added `retryPendingGoogleSheetSync()` to safely retry the latest Local Data Vault payload when pending sync exists.
+
+App code status:
+
+- No Home, Reports, Transactions, Accounts, AI Agent, AI icon, Dictate Mode, reset logic, PDF sync behavior, finance calculations, record deletion, UI, secrets, API keys, OAuth secrets, or service-account files were changed.
+- Google Sheet sync remains Apps Script Web App URL based.
+- SQLite remains source of truth and Local Data Vault remains the local readable mirror.
+
 ## 2026-07-06 - Point 48 Google Sheet Endpoint Configuration
 
 Role: Google Sheet Sync Engineer

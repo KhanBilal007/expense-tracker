@@ -19,6 +19,9 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 50 expanded: AI Agent now has a structured Transaction Query Brain for recent, date, account, category/keyword, expense, money-added, and combined transaction filters.
+- Point 50 applied: AI Agent now answers recent/latest transaction questions from Local Data Vault instead of treating them as keyword searches.
+- Point 49 applied: Google Sheet sync status now records payload counts, success state, and pending retry safety.
 - Point 48 applied: Google Apps Script Web App `/exec` endpoint is configured in Flutter sync settings for real Google Sheet auto-sync.
 - Point 47 documented: Google Apps Script receiver code and Google Sheet setup guide were added for Local Data Vault sync.
 - Point 45 applied: Google Sheet sync service now reads Local Data Vault and safely posts to a configurable Apps Script endpoint.
@@ -132,6 +135,9 @@ Expense Tracker Flutter app.
 
 ## Latest Google Sheet Sync Update
 
+- Point 49 added richer sync status tracking: `lastPayloadCounts` and `isLastSyncSuccessful`.
+- Failed Google Sheet syncs now keep local vault data intact, preserve a pending retry count, and continue logging `GOOGLE_SHEET_SYNC_FAILED=<safe error>`.
+- Added `retryPendingGoogleSheetSync()` for safe retry of the latest Local Data Vault snapshot when pending sync exists.
 - Point 48 configured the deployed Google Apps Script Web App endpoint in `SyncSettingsService`.
 - Endpoint validation now requires the configured URL to end with `/exec`.
 - Google Sheet sync continues to send Local Data Vault payloads through `GoogleSheetSyncService`.

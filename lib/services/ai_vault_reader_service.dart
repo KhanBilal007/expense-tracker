@@ -208,13 +208,34 @@ class AiVaultReaderService {
     DateTime? to,
     int limit = 5,
   }) async {
+    return queryTransactionsForAi(
+      keyword: query,
+      type: type,
+      accountId: accountId,
+      from: from,
+      to: to,
+      limit: limit,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> queryTransactionsForAi({
+    String? keyword,
+    String? type,
+    int? accountId,
+    DateTime? from,
+    DateTime? to,
+    int limit = 10,
+  }) async {
     final snapshot = await _readSnapshot();
-    final cleanQuery = _normalize(query ?? '');
+    final cleanQuery = _normalize(keyword ?? '');
+    final safeLimit = limit.clamp(1, 20).toInt();
 
     final matches = snapshot.transactions
         .where((txn) => type == null || txn['type']?.toString() == type)
         .where((txn) => accountId == null || _toInt(txn['accountId']) == accountId)
-        .where((txn) => _isWithinRange(txn['date']?.toString(), from, to))
+        .where((txn) => from == null && to == null
+            ? true
+            : _isWithinRange(_bestDateValue(txn), from, to))
         .where((txn) {
           if (cleanQuery.isEmpty) return true;
           final haystack = _normalize([
@@ -222,16 +243,30 @@ class AiVaultReaderService {
             txn['type'],
             txn['accountName'],
             txn['category'],
+            txn['categoryName'],
             txn['source'],
             txn['importSource'],
           ].whereType<Object>().join(' '));
           return haystack.contains(cleanQuery);
         })
         .toList()
-      ..sort((a, b) => (b['date']?.toString() ?? '')
-          .compareTo(a['date']?.toString() ?? ''));
+      ..sort(_compareTransactionsLatestFirst);
 
-    return matches.take(limit).toList();
+    return matches.take(safeLimit).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentTransactionsForAi({
+    int? accountId,
+    int limit = 5,
+  }) async {
+    final snapshot = await _readSnapshot();
+    final safeLimit = limit.clamp(1, 10).toInt();
+    final transactions = snapshot.transactions
+        .where((txn) => accountId == null || _toInt(txn['accountId']) == accountId)
+        .toList()
+      ..sort(_compareTransactionsLatestFirst);
+
+    return transactions.take(safeLimit).toList();
   }
 
   Future<_VaultSnapshot> _readSnapshot() async {
@@ -346,6 +381,49 @@ class AiVaultReaderService {
       if (date.isAfter(inclusiveTo)) return false;
     }
     return true;
+  }
+
+  int _compareTransactionsLatestFirst(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final aDate = _transactionSortDate(a);
+    final bDate = _transactionSortDate(b);
+    if (aDate != null && bDate != null) {
+      final dateCompare = bDate.compareTo(aDate);
+      if (dateCompare != 0) return dateCompare;
+    } else if (aDate != null) {
+      return -1;
+    } else if (bDate != null) {
+      return 1;
+    }
+
+    final aId = _transactionSortId(a);
+    final bId = _transactionSortId(b);
+    return bId.compareTo(aId);
+  }
+
+  DateTime? _transactionSortDate(Map<String, dynamic> transaction) {
+    final value = _bestDateValue(transaction);
+    if (value == null || value.trim().isEmpty) return null;
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) return parsed;
+    return null;
+  }
+
+  String? _bestDateValue(Map<String, dynamic> transaction) {
+    for (final key in ['date', 'transactionDate', 'createdAt', 'updatedAt']) {
+      final value = transaction[key]?.toString();
+      if (value != null && value.trim().isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  int _transactionSortId(Map<String, dynamic> transaction) {
+    return _toInt(transaction['transactionId']) ??
+        _toInt(transaction['id']) ??
+        _toInt(transaction['sourceTransactionId']) ??
+        0;
   }
 
   String _startOfDayIso(DateTime date) {

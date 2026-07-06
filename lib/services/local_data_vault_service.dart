@@ -75,12 +75,23 @@ class LocalDataVaultService {
     return _readJsonMap(syncQueueFile);
   }
 
+  Future<Map<String, dynamic>> readGoogleSheetSyncStatus() async {
+    final syncQueue = await readSyncQueue();
+    final status = syncQueue['googleSheetSync'];
+    if (status is Map) {
+      return Map<String, dynamic>.from(status);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<void> updateGoogleSheetSyncStatus({
     required String lastAttemptAt,
     String? lastSuccessAt,
     required bool endpointConfigured,
     required int pendingCount,
     String? lastError,
+    Map<String, int>? lastPayloadCounts,
+    bool? isLastSyncSuccessful,
   }) async {
     final dir = await getVaultDirectory();
     final existing = await readSyncQueue();
@@ -102,6 +113,11 @@ class LocalDataVaultService {
         'pendingCount': pendingCount,
         'lastError': lastError,
         'endpointConfigured': endpointConfigured,
+        'lastPayloadCounts':
+            lastPayloadCounts ?? existingGoogleSheetSync['lastPayloadCounts'] ?? {},
+        'isLastSyncSuccessful': isLastSyncSuccessful ??
+            existingGoogleSheetSync['isLastSyncSuccessful'] ??
+            false,
       },
     });
   }
@@ -127,6 +143,8 @@ class LocalDataVaultService {
             'pendingCount': pendingItems.length,
             'lastError': null,
             'endpointConfigured': false,
+            'lastPayloadCounts': {},
+            'isLastSyncSuccessful': false,
           },
     });
   }

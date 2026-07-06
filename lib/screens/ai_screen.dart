@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/ai_transaction_query_engine.dart';
 import '../services/ai_vault_reader_service.dart';
 import '../utils/money_formatter.dart';
 
@@ -14,6 +15,7 @@ class _AiScreenState extends State<AiScreen> {
   static const _aiIconAsset = 'assets/icons/ai_agent_option_2_icon.png';
 
   final _db = AiVaultReaderService();
+  final _transactionBrain = AiTransactionQueryEngine();
   final _inputCtrl = TextEditingController();
   final List<_AiMessage> _messages = [
     const _AiMessage(
@@ -94,8 +96,10 @@ class _AiScreenState extends State<AiScreen> {
         return _answerMoneyAdded(question);
       case _AiIntent.accountSummary:
         return _answerAccountSummary(question);
+      case _AiIntent.recentTransactions:
+        return _transactionBrain.answer(question);
       case _AiIntent.transactionSearch:
-        return _answerTransactionSearch(question);
+        return _transactionBrain.answer(question);
       case _AiIntent.appHelp:
         return _answerAppHelp(q);
       case _AiIntent.clarificationNeeded:
@@ -200,11 +204,17 @@ class _AiScreenState extends State<AiScreen> {
     final text = _cleanText(q).toLowerCase();
 
     if (_isAppHelpQuestion(text)) return _AiIntent.appHelp;
+    if (_isTransactionQueryQuestion(text)) {
+      return _isRecentTransactionsQuestion(text)
+          ? _AiIntent.recentTransactions
+          : _AiIntent.transactionSearch;
+    }
     if (_isTodayExpenseQuestion(text)) return _AiIntent.todayExpense;
     if (_isThisMonthExpenseQuestion(text)) return _AiIntent.thisMonthExpense;
     if (_isLastMonthExpenseQuestion(text)) return _AiIntent.lastMonthExpense;
     if (_isSumBalanceQuestion(text)) return _AiIntent.sumAccountBalances;
     if (_isAccountSummaryQuestion(text)) return _AiIntent.accountSummary;
+    if (_isRecentTransactionsQuestion(text)) return _AiIntent.recentTransactions;
     if (_isTransactionQuestion(text)) return _AiIntent.transactionSearch;
     if (_isMoneyAddedQuestion(text)) return _AiIntent.accountMoneyAdded;
     if (_isSpentQuestion(text)) return _AiIntent.accountSpent;
@@ -232,6 +242,7 @@ class _AiScreenState extends State<AiScreen> {
         intent == _AiIntent.accountSpent ||
         intent == _AiIntent.accountMoneyAdded ||
         intent == _AiIntent.accountSummary ||
+        intent == _AiIntent.recentTransactions ||
         intent == _AiIntent.transactionSearch;
   }
 
@@ -312,6 +323,45 @@ class _AiScreenState extends State<AiScreen> {
 
     final lines = txns.map(_formatTransactionLine).join('\n');
     return 'I found ${txns.length} transaction${txns.length == 1 ? '' : 's'}:\n$lines';
+  }
+
+  Future<String> _answerRecentTransactions(String question) async {
+    final limit = _recentTransactionLimit(question);
+    final accountName = _extractOptionalTransactionAccountName(question);
+    int? accountId;
+    String? matchedAccountName;
+
+    if (accountName != null && accountName.isNotEmpty) {
+      final lookup = await _lookupSingleAccount(accountName);
+      if (lookup.message != null) return lookup.message!;
+      accountId = lookup.account!['id'] as int;
+      matchedAccountName = lookup.account!['name'] as String;
+      _rememberFinanceContext(
+        accountId: accountId,
+        accountName: matchedAccountName,
+        intent: _AiIntent.recentTransactions,
+      );
+    }
+
+    final txns = await _db.getRecentTransactionsForAi(
+      accountId: accountId,
+      limit: limit,
+    );
+
+    if (txns.isEmpty) {
+      return matchedAccountName == null
+          ? 'No transactions found.'
+          : 'No transactions found for $matchedAccountName.';
+    }
+
+    final lines = txns
+        .asMap()
+        .entries
+        .map((entry) => _formatRecentTransactionLine(entry.key, entry.value))
+        .join('\n');
+    final accountText =
+        matchedAccountName == null ? '' : ' for $matchedAccountName';
+    return 'Latest ${txns.length} transaction${txns.length == 1 ? '' : 's'}$accountText:\n$lines';
   }
 
   Future<String> _answerBalance(String question) async {
@@ -665,6 +715,59 @@ class _AiScreenState extends State<AiScreen> {
         q.contains('recent income');
   }
 
+  bool _isTransactionQueryQuestion(String q) {
+    if (_isRecentTransactionsQuestion(q) || _isTransactionQuestion(q)) {
+      return true;
+    }
+
+    final asksToList = RegExp(r'\b(show|list|find|give)\b').hasMatch(q);
+    final hasDateOrPeriod = _hasDateReference(q) || _parseQuestionPeriod(q) != null;
+    final hasExpenseList =
+        q.contains('expenses') && !q.contains('how much') && !q.contains('total');
+    final hasMoneyAddedList = q.contains('money added') &&
+        (asksToList ||
+            hasDateOrPeriod ||
+            q.contains('last') ||
+            q.contains('latest') ||
+            q.contains('recent'));
+    final hasIncomeList = q.contains('income') &&
+        (asksToList ||
+            hasDateOrPeriod ||
+            q.contains('last') ||
+            q.contains('latest') ||
+            q.contains('recent'));
+
+    return hasExpenseList ||
+        hasMoneyAddedList ||
+        hasIncomeList ||
+        (asksToList &&
+            (q.contains('expense') ||
+                q.contains('income') ||
+                q.contains('money added')));
+  }
+
+  bool _isRecentTransactionsQuestion(String q) {
+    final mentionsTransactions =
+        q.contains('transaction') ||
+            q.contains('transactions') ||
+            q.contains('entries') ||
+            q.contains('expense') ||
+            q.contains('expenses') ||
+            q.contains('income') ||
+            q.contains('money added');
+    if (!mentionsTransactions) return false;
+
+    return q.contains('recent') ||
+        q.contains('latest') ||
+        q.contains('last transaction') ||
+        q.contains('last transactions') ||
+        RegExp(r'\blast\s+(\d{1,2}|one|two|three|four|five|ten)\s+transactions?\b')
+            .hasMatch(q) ||
+        RegExp(r'\blatest\s+(\d{1,2}|one|two|three|four|five|ten)?\s*transactions?\b')
+            .hasMatch(q) ||
+        RegExp(r'\bshow\s+(recent|last|latest)\s+').hasMatch(q);
+  }
+
   bool _isAppHelpQuestion(String q) {
     return q.contains('how to') ||
         q.contains('how do i') ||
@@ -834,6 +937,38 @@ class _AiScreenState extends State<AiScreen> {
     return null;
   }
 
+  int _recentTransactionLimit(String value) {
+    final text = _cleanText(value).toLowerCase();
+    final numberMatch =
+        RegExp(r'\b(\d{1,2}|one|two|three|four|five|ten)\b').firstMatch(text);
+    final parsed = numberMatch == null
+        ? null
+        : _parseSmallNumber(numberMatch.group(1) ?? '');
+
+    if (parsed != null) return parsed.clamp(1, 10).toInt();
+    if (RegExp(r'\blast\s+transaction\b').hasMatch(text)) return 1;
+    return 5;
+  }
+
+  int? _parseSmallNumber(String value) {
+    switch (value.toLowerCase()) {
+      case 'one':
+        return 1;
+      case 'two':
+        return 2;
+      case 'three':
+        return 3;
+      case 'four':
+        return 4;
+      case 'five':
+        return 5;
+      case 'ten':
+        return 10;
+      default:
+        return int.tryParse(value);
+    }
+  }
+
   String _formatTransactionLine(Map<String, dynamic> transaction) {
     final amount = (transaction['amount'] as num?)?.toDouble() ?? 0;
     final type = transaction['type']?.toString() ?? 'expense';
@@ -853,6 +988,43 @@ class _AiScreenState extends State<AiScreen> {
     final accountText = account != null && account.isNotEmpty ? ' - $account' : '';
 
     return '- ${_formatStoredDate(transaction['date']?.toString())}: $sign${_formatMoney(amount.abs())} $title$accountText';
+  }
+
+  String _formatRecentTransactionLine(
+    int index,
+    Map<String, dynamic> transaction,
+  ) {
+    final amount = (transaction['amount'] as num?)?.toDouble() ?? 0;
+    final type = transaction['type']?.toString() ?? 'expense';
+    final account = (transaction['accountName'] ?? transaction['account_name'])
+            ?.toString()
+            .trim();
+    final description = transaction['description']?.toString().trim();
+    final category = (transaction['category'] ?? transaction['category_name'])
+        ?.toString()
+        .trim();
+    final detail = description != null && description.isNotEmpty
+        ? description
+        : category != null && category.isNotEmpty
+            ? category
+            : 'No description';
+
+    return '${index + 1}. ${_formatStoredDateWithYear(_bestTransactionDate(transaction))} - ${account != null && account.isNotEmpty ? account : 'Unknown account'} - ${_transactionTypeLabel(type)} - ${_formatMoney(amount.abs())} - $detail';
+  }
+
+  String _transactionTypeLabel(String type) {
+    switch (type) {
+      case 'income':
+        return 'Money Added';
+      case 'expense':
+        return 'Expense';
+      case 'transfer_in':
+        return 'Transfer In';
+      case 'transfer_out':
+        return 'Transfer Out';
+      default:
+        return _titleCase(type.replaceAll('_', ' '));
+    }
   }
 
   List<String> _extractSumAccountNames(String value) {
@@ -1000,6 +1172,25 @@ class _AiScreenState extends State<AiScreen> {
     if (parsed == null) return rawDate;
 
     return _formatDate(parsed);
+  }
+
+  String? _bestTransactionDate(Map<String, dynamic> transaction) {
+    for (final key in ['date', 'transactionDate', 'createdAt', 'updatedAt']) {
+      final value = transaction[key]?.toString();
+      if (value != null && value.trim().isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  String _formatStoredDateWithYear(String? rawDate) {
+    if (rawDate == null || rawDate.isEmpty) return 'Unknown date';
+
+    final parsed = DateTime.tryParse(rawDate);
+    if (parsed == null) return rawDate;
+
+    final day = parsed.day.toString().padLeft(2, '0');
+    final month = _monthLabels[parsed.month - 1].substring(0, 3);
+    return '$day $month ${parsed.year}';
   }
 
   String _startOfDayIso(DateTime date) {
@@ -1269,6 +1460,7 @@ enum _AiIntent {
   accountSpent,
   accountMoneyAdded,
   accountSummary,
+  recentTransactions,
   transactionSearch,
   appHelp,
   clarificationNeeded,
