@@ -252,8 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _blue.withOpacity(0.28),
-                    _blue.withOpacity(0.07),
+                    _blue.withValues(alpha: 0.28),
+                    _blue.withValues(alpha: 0.07),
                     Colors.transparent,
                   ],
                 ),
@@ -489,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _accountRow(shown[i], i == 0 ? _blue : _green),
             ),
             if (i != shown.length - 1)
-              Divider(color: Colors.white.withOpacity(0.08), height: 2),
+              Divider(color: Colors.white.withValues(alpha: 0.08), height: 2),
           ],
         ],
       ),
@@ -533,7 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right_rounded,
-                color: _textSub.withOpacity(0.85), size: 18),
+                color: _textSub.withValues(alpha: 0.85), size: 18),
           ],
         ),
       ),
@@ -549,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return _glassCard(
       height: 86,
-      borderColor: color.withOpacity(0.55),
+      borderColor: color.withValues(alpha: 0.55),
       padding: const EdgeInsets.all(8),
       child: Stack(
         children: [
@@ -559,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: -2,
             height: 20,
             child: CustomPaint(
-                painter: _SmallWavePainter(color.withOpacity(0.85))),
+                painter: _SmallWavePainter(color.withValues(alpha: 0.85))),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -609,7 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
       required Color color}) {
     return _glassCard(
       height: 55,
-      borderColor: color.withOpacity(0.42),
+      borderColor: color.withValues(alpha: 0.42),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       child: Row(
         children: [
@@ -681,10 +681,10 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                    colors: [color.withOpacity(0.95), color.withOpacity(0.70)]),
+                    colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.70)]),
                 boxShadow: [
                   BoxShadow(
-                      color: color.withOpacity(0.20),
+                      color: color.withValues(alpha: 0.20),
                       blurRadius: 12,
                       spreadRadius: 1)
                 ],
@@ -722,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen> {
           for (int i = 0; i < shown.length; i++) ...[
             _txTile(shown[i]),
             if (i != shown.length - 1)
-              Divider(color: Colors.white.withOpacity(0.08), height: 12),
+              Divider(color: Colors.white.withValues(alpha: 0.08), height: 12),
           ],
         ],
       ),
@@ -781,7 +781,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right_rounded,
-                color: _textSub.withOpacity(0.8), size: 24),
+                color: _textSub.withValues(alpha: 0.8), size: 24),
           ],
         ),
       ),
@@ -795,10 +795,10 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: _card2,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.45),
+              color: Colors.black.withValues(alpha: 0.45),
               blurRadius: 18,
               offset: const Offset(0, 8))
         ],
@@ -833,10 +833,10 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
           color:
-              active ? _blue.withOpacity(0.18) : Colors.white.withOpacity(0.05),
+              active ? _blue.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: active ? _blue.withOpacity(0.42) : Colors.transparent,
+            color: active ? _blue.withValues(alpha: 0.42) : Colors.transparent,
           ),
         ),
         child: Column(
@@ -880,10 +880,10 @@ class _HomeScreenState extends State<HomeScreen> {
         color: _card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: borderColor ?? Colors.white.withOpacity(0.08), width: 1),
+            color: borderColor ?? Colors.white.withValues(alpha: 0.08), width: 1),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.28),
+              color: Colors.black.withValues(alpha: 0.28),
               blurRadius: 14,
               offset: const Offset(0, 8))
         ],
@@ -900,10 +900,10 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.28),
         gradient: LinearGradient(
-            colors: [color.withOpacity(0.95), color.withOpacity(0.55)]),
+            colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.55)]),
         boxShadow: [
           BoxShadow(
-              color: color.withOpacity(0.15), blurRadius: 10, spreadRadius: 1)
+              color: color.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)
         ],
       ),
       child: Icon(icon, color: Colors.white, size: iconSize),
@@ -911,7 +911,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _dividerVertical() =>
-      Container(width: 1, height: 24, color: Colors.white.withOpacity(0.06));
+      Container(width: 1, height: 24, color: Colors.white.withValues(alpha: 0.06));
 }
 
 class _WavePainter extends CustomPainter {
@@ -926,7 +926,7 @@ class _WavePainter extends CustomPainter {
     }
 
     final glow = Paint()
-      ..color = const Color(0xFF2D8CFF).withOpacity(0.35)
+      ..color = const Color(0xFF2D8CFF).withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 9
       ..strokeCap = StrokeCap.round

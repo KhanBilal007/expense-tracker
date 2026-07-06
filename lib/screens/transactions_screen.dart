@@ -370,7 +370,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Change Account'),
           content: DropdownButtonFormField<int>(
-            value: selectedAccountId,
+            initialValue: selectedAccountId,
             isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Account',

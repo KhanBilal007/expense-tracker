@@ -19,6 +19,7 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 51 applied: Flutter analyze cleanup replaced deprecated safe UI APIs and reduced lint warnings without feature changes.
 - Point 49 completed: Google Sheet sync status now includes final HTTP status and retry reports success or pending state.
 - Point 50 Analyze Fix applied: widget test now uses `ExpenseApp`, and the unnecessary transaction description non-null assertion was removed.
 - Point 48 / 49 redirect follow-up applied: Google Sheet sync now POSTs only to Apps Script `/exec`, then follows 302/303 redirect targets with GET.

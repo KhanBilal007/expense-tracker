@@ -1,5 +1,22 @@
 # Thread Reports
 
+## 2026-07-06 - Point 51 Flutter Analyze Cleanup
+
+Role: QA / Flutter Analyze Cleanup Engineer
+
+Scope:
+
+- Patched `lib/screens/transactions_screen.dart`.
+- Patched `lib/screens/home_screen.dart`.
+- Replaced deprecated `DropdownButtonFormField.value` with `initialValue` in the Transactions change-account dialog.
+- Replaced deprecated `Color.withOpacity(...)` usages with `Color.withValues(alpha: ...)` in Home screen styling.
+- Kept changes behavior-equivalent and limited to analyzer cleanup.
+
+App code status:
+
+- No AI Agent logic, Point 50 transaction query brain, Google Sheet sync behavior, Local Data Vault logic, calculations, PDF sync, reset logic, Accounts behavior, Transactions behavior, Home calculations, AI icon, or Dictate Mode was changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 49 Sync Status And Retry Completion
 
 Role: Google Sheet Sync Reliability Engineer
