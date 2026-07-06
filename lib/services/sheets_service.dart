@@ -1,38 +1,38 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
-/// Item 9: Google Sheets integration
-/// Uses Google Sheets API v4 with a user-provided script URL (Google Apps Script)
-/// User creates a Google Apps Script Web App that accepts POST requests
+import 'sync_settings_service.dart';
+
+/// Compatibility shim for existing per-transaction call sites.
+/// Network delivery is handled only by the Local Data Vault sync pipeline.
 class SheetsService {
-  static final SheetsService _i = SheetsService._();
-  factory SheetsService() => _i;
+  static final SheetsService _instance = SheetsService._();
+  factory SheetsService() => _instance;
   SheetsService._();
 
-  static const _prefKey = 'sheets_script_url';
+  final _settings = SyncSettingsService();
 
-  Future<String?> getScriptUrl() async => (await SharedPreferences.getInstance()).getString(_prefKey);
-  Future<void> setScriptUrl(String url) async => (await SharedPreferences.getInstance()).setString(_prefKey, url);
+  Future<String?> getScriptUrl() async {
+    final endpoint = await _settings.getGoogleSheetEndpoint();
+    return endpoint.isEmpty ? null : endpoint;
+  }
 
-  /// Appends a row to the connected Google Sheet
-  Future<bool> appendTransaction(Map<String, dynamic> tx) async {
-    final url = await getScriptUrl();
-    if (url == null || url.isEmpty) return false;
-    try {
-      final resp = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'date':        tx['date'],
-          'type':        tx['type'],
-          'amount':      tx['amount'],
-          'account':     tx['account_name'] ?? '',
-          'category':    tx['category_name'] ?? '',
-          'description': tx['description'] ?? '',
-        }),
-      );
-      return resp.statusCode == 200;
-    } catch (_) { return false; }
+  Future<void> setScriptUrl(String url) {
+    return _settings.setGoogleSheetEndpoint(url);
+  }
+
+  Future<bool> appendTransaction(Map<String, dynamic> transaction) async {
+    if (!await _settings.isGoogleSheetSyncEnabled()) {
+      debugPrint('GOOGLE_SHEET_SYNC_SKIPPED=disabled');
+      return false;
+    }
+
+    final url = await _settings.getGoogleSheetEndpoint();
+    if (url.isEmpty) {
+      debugPrint('GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured');
+      return false;
+    }
+
+    debugPrint('GOOGLE_SHEET_SYNC_DEFERRED=local_data_vault');
+    return false;
   }
 }

@@ -50,10 +50,15 @@
 47. [x] Point 52: Reuse Transactions PhonePe PDF sync from the Home bottom navigation Sync button. Fixed 2026-07-06.
 48. [x] Point 11: Complete full static project bug audit and create `BUG_AUDIT_REPORT.md`. Fixed 2026-07-06.
 49. Make Add Expense, Add Money, SMS import, and recurring balance/transaction writes atomic.
-50. Consolidate legacy `SheetsService` with active Local Data Vault Google Sheet sync configuration.
+50. [x] Consolidate legacy `SheetsService` with active Local Data Vault Google Sheet sync configuration. Fixed 2026-07-06.
 51. Wire `retryPendingGoogleSheetSync()` to a safe automatic retry trigger.
 52. Serialize Local Data Vault exports and sync status writes.
 53. Apply dialog-local context and post-close refresh patterns to Categories, Budgets, Rules, and Recurring.
 54. Define and fix recurring month-end and missed-period behavior.
 55. Add automated tests for finance calculations, reset, parser/dedupe, vault, Google sync, and AI queries.
 56. Review Android SMS/storage permissions and production release signing.
+57. [x] Point 53: Make Home background white and readable in light mode while preserving dark mode. Fixed 2026-07-06.
+58. [x] Point 55: Make Google Sheet sync optional, OFF by default, and controlled from Settings. Fixed 2026-07-06.
+59. [x] Point 56: Consolidate Google Sheet sync into one Local Data Vault based path. Fixed 2026-07-06.
+60. [x] Point 56 Follow-up / 55 Minimal Config: Restore vault-based Google Sheet endpoint configuration. Fixed 2026-07-06.
+61. [x] Point 55 Resume: Finish Settings sync status/config behavior without disturbing Point 56. Fixed 2026-07-06.

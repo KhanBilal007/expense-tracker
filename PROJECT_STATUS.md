@@ -19,6 +19,11 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 55 resume completed: existing Settings-based Google Sheet controls were inspected and the remaining endpoint/status mismatch was fixed without disturbing Point 56's single vault-based sync path.
+- Point 56 follow-up / 55 minimal config applied: the single vault-based Google Sheet sync path now has a configured Apps Script `/exec` endpoint in `SyncSettingsService`.
+- Point 56 applied: Google Sheet sync is consolidated into one active Local Data Vault based path; legacy `SheetsService` calls are compatibility no-ops and cannot send per-transaction rows.
+- Point 55 applied: Google Sheet sync is opt-in and OFF by default, Settings controls enablement/endpoint/manual sync/status, and disabled sync never sends data while Local Data Vault remains active.
+- Point 53 applied: Home now uses a white, readable theme-aware background in light mode while preserving its existing dark-mode palette and bottom navigation.
 - Point 11 full static bug audit completed: low-risk analyzer/date-filter fixes were applied and larger persistence, retry, lifecycle, permission, and test risks were documented in `BUG_AUDIT_REPORT.md`.
 - Point 52 applied: Home bottom navigation Sync and Transactions Sync now use one shared PhonePe PDF sync service with automatic import, duplicate skipping, and a download-first no-file message.
 - Point 39 compact nav trial applied: bottom navigation height is now 54px with tighter icon, label, and gap sizing to reduce Recent Transactions overlap risk.

@@ -2,6 +2,11 @@
 
 ## 2026-07-05
 
+- Point 55 Resume: Inspected existing Settings sync controls and fixed the remaining endpoint/status mismatch while preserving the Point 56 single vault-based Google Sheet sync path.
+- Point 56 Follow-up / 55 Minimal Config: Restored Google Sheet syncing by configuring the Apps Script `/exec` endpoint in `SyncSettingsService` for the single Local Data Vault based path.
+- Point 56: Consolidated Google Sheet syncing into the single Local Data Vault -> `GoogleSheetSyncService` path and made legacy per-transaction `SheetsService` calls no-op compatibility calls.
+- Point 55: Made Google Sheet sync opt-in and OFF by default, added Settings enable/endpoint/manual-sync/status controls, and unified all sync gating behind the Local Data Vault pipeline.
+- Point 53: Made the Home canvas, cards, and text theme-aware so light mode uses a white readable background while dark mode and bottom navigation remain unchanged.
 - Point 11: Added a full static bug audit report, fixed two analyzer cleanup candidates, removed one redundant PhonePe null assertion, corrected the Transactions end-date boundary, and refreshed stale project documentation.
 - Point 52: Extracted one shared PhonePe statement sync service and wired both Transactions Sync and Home bottom navigation Sync to it, including the download-first no-file message.
 - Point 39: Tried a more compact Home bottom navigation at 54px height with 24px AI icon, 21px Home/Sync icons, and tighter label spacing.

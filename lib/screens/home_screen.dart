@@ -30,10 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   bool _syncing = false;
 
-  static const _bgTop = Color(0xFF071B35);
-  static const _bgBottom = Color(0xFF020811);
-  static const _card = Color(0xAA0C1A2A);
-  static const _card2 = Color(0xCC0B1726);
+  static const _darkBgTop = Color(0xFF071B35);
+  static const _darkBgBottom = Color(0xFF020811);
+  static const _darkCard = Color(0xAA0C1A2A);
+  static const _darkCard2 = Color(0xCC0B1726);
   static const _line = Color(0xFF0D7DFF);
   static const _blue = Color(0xFF2D8CFF);
   static const _green = Color(0xFF22C55E);
@@ -41,9 +41,29 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _purple = Color(0xFFA855F7);
   static const _orange = Color(0xFFF59E0B);
   static const _cyan = Color(0xFF20D7E8);
-  static const _textMain = Colors.white;
-  static const _textSub = Color(0xFFB8C2CF);
+  static const _darkTextMain = Colors.white;
+  static const _darkTextSub = Color(0xFFB8C2CF);
   static const _aiIconAsset = 'assets/icons/ai_agent_option_2_icon.png';
+
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+  Color get _pageBackground =>
+      _isDarkMode ? _darkBgBottom : Colors.white;
+  Color get _card => _isDarkMode ? _darkCard : Colors.white;
+  Color get _card2 =>
+      _isDarkMode ? _darkCard2 : const Color(0xFFF8FAFC);
+  Color get _textMain =>
+      _isDarkMode ? _darkTextMain : const Color(0xFF111827);
+  Color get _textSub =>
+      _isDarkMode ? _darkTextSub : const Color(0xFF5F6B7A);
+  Color get _cardBorder => _isDarkMode
+      ? Colors.white.withValues(alpha: 0.08)
+      : const Color(0xFFE2E8F0);
+  Color get _dividerColor => _isDarkMode
+      ? Colors.white.withValues(alpha: 0.08)
+      : const Color(0xFFE5E7EB);
+  Color get _verticalDividerColor => _isDarkMode
+      ? Colors.white.withValues(alpha: 0.06)
+      : const Color(0xFFE5E7EB);
 
   @override
   void initState() {
@@ -170,19 +190,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bgBottom,
+      backgroundColor: _pageBackground,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _blue))
           : RefreshIndicator(
               onRefresh: _load,
               color: _blue,
               child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [_bgTop, _bgBottom],
-                  ),
+                decoration: BoxDecoration(
+                  color: _pageBackground,
+                  gradient: _isDarkMode
+                      ? const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [_darkBgTop, _darkBgBottom],
+                        )
+                      : null,
                 ),
                 child: SafeArea(
                   child: LayoutBuilder(
@@ -259,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                               const SizedBox(height: 6),
-                              const Text(
+                              Text(
                                 'Quick Actions',
                                 style: TextStyle(
                                     color: _textMain,
@@ -318,8 +341,8 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   'Expense Tracker',
                   style: TextStyle(
@@ -332,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 0),
                 child: IconButton(
-                  icon: const Icon(Icons.settings, color: _textMain, size: 32),
+                  icon: Icon(Icons.settings, color: _textMain, size: 32),
                   onPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.settings)
                           .then((_) => _load()),
@@ -360,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(title,
-            style: const TextStyle(
+            style: TextStyle(
                 color: _textMain, fontSize: 19, fontWeight: FontWeight.w800)),
         GestureDetector(
           onTap: onTap,
@@ -382,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text('Accounts',
+        Text('Accounts',
             style: TextStyle(
                 color: _textMain, fontSize: 19, fontWeight: FontWeight.w800)),
         GestureDetector(
@@ -434,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Choose Home Accounts',
                             style: TextStyle(
@@ -463,19 +486,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             value: selected,
                             dense: true,
                             activeColor: _blue,
-                            checkColor: _textMain,
+                            checkColor: Colors.white,
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               account['name']?.toString() ?? 'Account',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: _textMain,
                                   fontWeight: FontWeight.w700),
                             ),
                             subtitle: Text(
                               _money((account['balance'] as num?) ?? 0),
-                              style: const TextStyle(color: _textSub),
+                              style: TextStyle(color: _textSub),
                             ),
                             onChanged: (_) {
                               if (selected) {
@@ -529,7 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (shown.isEmpty) {
       return _glassCard(
         height: 90,
-        child: const Center(
+        child: Center(
             child: Text('No accounts yet',
                 style: TextStyle(color: _textSub, fontSize: 15))),
       );
@@ -544,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _accountRow(shown[i], i == 0 ? _blue : _green),
             ),
             if (i != shown.length - 1)
-              Divider(color: Colors.white.withValues(alpha: 0.08), height: 2),
+              Divider(color: _dividerColor, height: 2),
           ],
         ],
       ),
@@ -575,7 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     color: _textMain,
                     fontSize: 14,
                     fontWeight: FontWeight.w700),
@@ -583,7 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Text(
               _money(bal),
-              style: const TextStyle(
+              style: TextStyle(
                   color: _textMain, fontSize: 18, fontWeight: FontWeight.w900),
             ),
             const SizedBox(width: 4),
@@ -628,7 +651,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _textSub,
                           fontSize: 11,
                           fontWeight: FontWeight.w600),
@@ -676,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: _textMain,
                         fontSize: 14,
                         fontWeight: FontWeight.w700)),
@@ -750,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                     color: _textMain,
                     fontSize: 14,
                     fontWeight: FontWeight.w600)),
@@ -764,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_recent.isEmpty) {
       return _glassCard(
         height: 86,
-        child: const Center(
+        child: Center(
             child: Text('No transactions yet',
                 style: TextStyle(color: _textSub, fontSize: 15))),
       );
@@ -777,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> {
           for (int i = 0; i < shown.length; i++) ...[
             _txTile(shown[i]),
             if (i != shown.length - 1)
-              Divider(color: Colors.white.withValues(alpha: 0.08), height: 12),
+              Divider(color: _dividerColor, height: 12),
           ],
         ],
       ),
@@ -815,7 +838,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(desc,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w800)),
@@ -824,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     '${t['account_name'] ?? ''} • ${DateFormat('dd MMM, hh:mm a').format(date)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _textSub, fontSize: 12),
+                    style: TextStyle(color: _textSub, fontSize: 12),
                   ),
                 ],
               ),
@@ -850,7 +873,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: 54,
         decoration: BoxDecoration(
-          color: _card2,
+          color: _darkCard2,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           boxShadow: [
@@ -867,11 +890,11 @@ class _HomeScreenState extends State<HomeScreen> {
             _navItem(
                 Icons.smart_toy_outlined,
                 'AI',
-                _textSub,
+                _darkTextSub,
                 () => Navigator.pushNamed(context, AppRoutes.ai)
                     .then((_) => _load()),
                 assetPath: _aiIconAsset),
-            _navItem(Icons.sync_rounded, 'Sync', _textSub, _syncPhonePe),
+            _navItem(Icons.sync_rounded, 'Sync', _darkTextSub, _syncPhonePe),
           ],
         ),
       ),
@@ -943,10 +966,10 @@ class _HomeScreenState extends State<HomeScreen> {
         color: _card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: borderColor ?? Colors.white.withValues(alpha: 0.08), width: 1),
+            color: borderColor ?? _cardBorder, width: 1),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
+              color: Colors.black.withValues(alpha: _isDarkMode ? 0.28 : 0.10),
               blurRadius: 14,
               offset: const Offset(0, 8))
         ],
@@ -974,7 +997,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _dividerVertical() =>
-      Container(width: 1, height: 24, color: Colors.white.withValues(alpha: 0.06));
+      Container(width: 1, height: 24, color: _verticalDividerColor);
 }
 
 class _WavePainter extends CustomPainter {

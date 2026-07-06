@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../db/database_helper.dart';
 import '../main.dart';
 import '../navigation/app_routes.dart';
-import '../services/sheets_service.dart';
+import '../services/sync_settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,9 +14,14 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _db = DatabaseHelper();
-  final _sheets = SheetsService();
+  final _syncSettings = SyncSettingsService();
   final _sheetsCtrl = TextEditingController();
   bool _darkMode = false, _isHindi = false;
+  bool _googleSheetSyncEnabled = false;
+  bool _syncingGoogleSheet = false;
+  String _googleSheetSyncStatus = SyncSettingsService.statusDisabled;
+  String? _lastGoogleSheetSyncAt;
+  String? _lastGoogleSheetSyncError;
   int? _defaultAccId;
   List<Map<String, dynamic>> _accounts = [];
 
@@ -36,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     final accounts = await _db.getAccounts();
     final defId = await _db.getDefaultAccountId();
-    final sheetsUrl = await _sheets.getScriptUrl() ?? '';
+    final syncSettings = await _syncSettings.getGoogleSheetSettings();
     if (!mounted) return;
     final validDefId = (defId != null && accounts.any((a) => a['id'] == defId))
         ? defId
@@ -46,11 +51,143 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isHindi = prefs.getBool('hindi') ?? false;
       _accounts = accounts;
       _defaultAccId = validDefId;
-      _sheetsCtrl.text = sheetsUrl;
+      _googleSheetSyncEnabled =
+          syncSettings['googleSheetSyncEnabled'] as bool? ?? false;
+      _googleSheetSyncStatus = syncSettings['syncStatus']?.toString() ??
+          SyncSettingsService.statusDisabled;
+      _lastGoogleSheetSyncAt = syncSettings['lastSyncAt']?.toString();
+      _lastGoogleSheetSyncError =
+          syncSettings['lastSyncError']?.toString();
+      _sheetsCtrl.text =
+          syncSettings['googleSheetEndpointUrl']?.toString() ?? '';
     });
     if (validDefId != null && validDefId != defId) {
       await _db.setDefaultAccountId(validDefId);
     }
+  }
+
+  Future<void> _refreshGoogleSheetSettings() async {
+    final syncSettings = await _syncSettings.getGoogleSheetSettings();
+    if (!mounted) return;
+    setState(() {
+      _googleSheetSyncEnabled =
+          syncSettings['googleSheetSyncEnabled'] as bool? ?? false;
+      _googleSheetSyncStatus = syncSettings['syncStatus']?.toString() ??
+          SyncSettingsService.statusDisabled;
+      _lastGoogleSheetSyncAt = syncSettings['lastSyncAt']?.toString();
+      _lastGoogleSheetSyncError =
+          syncSettings['lastSyncError']?.toString();
+      _sheetsCtrl.text =
+          syncSettings['googleSheetEndpointUrl']?.toString() ?? '';
+    });
+  }
+
+  Future<void> _toggleGoogleSheetSync(bool enabled) async {
+    await _syncSettings.setGoogleSheetSyncEnabled(enabled);
+    final endpoint = await _syncSettings.getGoogleSheetEndpoint();
+    await _syncSettings.updateGoogleSheetSyncState(
+      syncStatus: !enabled
+          ? SyncSettingsService.statusDisabled
+          : endpoint.isEmpty
+              ? SyncSettingsService.statusNotConfigured
+              : SyncSettingsService.statusReady,
+      lastSyncError:
+          enabled && endpoint.isEmpty ? 'no_endpoint_configured' : null,
+    );
+    await _refreshGoogleSheetSettings();
+  }
+
+  Future<void> _saveGoogleSheetEndpoint() async {
+    final endpoint = _sheetsCtrl.text.trim();
+    if (endpoint.isNotEmpty &&
+        !_syncSettings.isValidGoogleSheetEndpoint(endpoint)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid HTTPS Apps Script URL ending in /exec.'),
+        ),
+      );
+      return;
+    }
+
+    await _syncSettings.setGoogleSheetEndpoint(endpoint);
+    final effectiveEndpoint = await _syncSettings.getGoogleSheetEndpoint();
+    await _syncSettings.updateGoogleSheetSyncState(
+      syncStatus: !_googleSheetSyncEnabled
+          ? SyncSettingsService.statusDisabled
+          : effectiveEndpoint.isEmpty
+              ? SyncSettingsService.statusNotConfigured
+              : SyncSettingsService.statusReady,
+      lastSyncError: _googleSheetSyncEnabled && effectiveEndpoint.isEmpty
+          ? 'no_endpoint_configured'
+          : null,
+    );
+    await _refreshGoogleSheetSettings();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(endpoint.isEmpty
+            ? 'Google Sheet endpoint cleared. Configured endpoint will be used.'
+            : 'Google Sheet endpoint saved.'),
+      ),
+    );
+  }
+
+  Future<void> _syncGoogleSheetNow() async {
+    if (!_googleSheetSyncEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enable Google Sheet Sync first.')),
+      );
+      return;
+    }
+    final endpoint = await _syncSettings.getGoogleSheetEndpoint();
+    if (!mounted) return;
+    if (endpoint.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter and save an Apps Script URL first.')),
+      );
+      return;
+    }
+
+    setState(() => _syncingGoogleSheet = true);
+    try {
+      await _db.exportAllDataToLocalVault();
+      await _refreshGoogleSheetSettings();
+      if (!mounted) return;
+      final succeeded =
+          _googleSheetSyncStatus == SyncSettingsService.statusConnected;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(succeeded
+              ? 'Google Sheet sync completed.'
+              : 'Google Sheet sync did not complete. Check the status below.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncingGoogleSheet = false);
+    }
+  }
+
+  String get _googleSheetStatusLabel {
+    switch (_googleSheetSyncStatus) {
+      case SyncSettingsService.statusConnected:
+        return 'Connected';
+      case SyncSettingsService.statusFailed:
+        return 'Failed';
+      case SyncSettingsService.statusNotConfigured:
+        return 'Endpoint required';
+      case SyncSettingsService.statusSyncing:
+        return 'Syncing';
+      case SyncSettingsService.statusReady:
+        return 'Ready';
+      default:
+        return 'Disabled';
+    }
+  }
+
+  String? get _formattedLastSyncAt {
+    final parsed = DateTime.tryParse(_lastGoogleSheetSyncAt ?? '');
+    if (parsed == null) return null;
+    return parsed.toLocal().toString().split('.').first;
   }
 
   // Item 11: Reset with mandatory backup prompt
@@ -195,26 +332,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ]),
             )),
 
-        // Item 9: Google Sheets URL
-        _header('GOOGLE SHEETS SYNC'),
+        _header('GOOGLE SHEET SYNC'),
         Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.cloud_sync_outlined),
+                      title: const Text('Enable Google Sheet Sync'),
+                      subtitle: const Text(
+                        'Off by default. Enable only with your own Apps Script URL.',
+                      ),
+                      value: _googleSheetSyncEnabled,
+                      onChanged: _toggleGoogleSheetSync,
+                    ),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
                     const Text('Apps Script Web App URL',
                         style: TextStyle(fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
                     const Text(
-                        'Paste your Google Apps Script deployment URL. Every new transaction will be saved to your Sheet.',
+                        'Your data is sent only while sync is enabled.',
                         style: TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 10),
                     TextField(
                       controller: _sheetsCtrl,
+                      enabled: _googleSheetSyncEnabled,
                       decoration: const InputDecoration(
                           hintText: 'https://script.google.com/macros/s/…',
                           border: OutlineInputBorder(),
@@ -223,18 +372,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(height: 8),
-                    SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await _sheets.setScriptUrl(_sheetsCtrl.text.trim());
-                            if (mounted)
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Sheets URL saved!')));
-                          },
-                          child: const Text('Save URL'),
-                        )),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _googleSheetSyncEnabled
+                                ? _saveGoogleSheetEndpoint
+                                : null,
+                            child: const Text('Save URL'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _googleSheetSyncEnabled &&
+                                    !_syncingGoogleSheet
+                                ? _syncGoogleSheetNow
+                                : null,
+                            child: _syncingGoogleSheet
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Sync Now'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Status: $_googleSheetStatusLabel',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: _googleSheetSyncStatus ==
+                                SyncSettingsService.statusFailed
+                            ? Colors.red
+                            : _googleSheetSyncStatus ==
+                                    SyncSettingsService.statusConnected
+                                ? Colors.green
+                                : Colors.grey,
+                      ),
+                    ),
+                    if (_formattedLastSyncAt != null)
+                      Text(
+                        'Last synced: $_formattedLastSyncAt',
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    if (_lastGoogleSheetSyncError != null)
+                      Text(
+                        'Last error: $_lastGoogleSheetSyncError',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: Colors.red),
+                      ),
                     const SizedBox(height: 6),
                     const Text(
                         'How to set up: Create a Google Sheet → Extensions → Apps Script → paste the doPost script → Deploy as Web App → copy URL here.',

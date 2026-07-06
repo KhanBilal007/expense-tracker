@@ -10,7 +10,7 @@ import 'sync_settings_service.dart';
 class GoogleSheetSyncService {
   final LocalDataVaultService _vault;
   final SyncSettingsService _settings;
-  final http.Client _client;
+  http.Client? _client;
 
   GoogleSheetSyncService({
     LocalDataVaultService? vault,
@@ -18,16 +18,31 @@ class GoogleSheetSyncService {
     http.Client? client,
   })  : _vault = vault ?? LocalDataVaultService(),
         _settings = settings ?? SyncSettingsService(),
-        _client = client ?? http.Client();
+        _client = client;
 
   Future<void> syncFromLocalVault() async {
     final attemptAt = DateTime.now().toIso8601String();
-    debugPrint('GOOGLE_SHEET_SYNC_STARTED');
     Map<String, dynamic>? payload;
     Map<String, int>? payloadCounts;
     int? lastHttpStatus;
 
     try {
+      final syncEnabled = await _settings.isGoogleSheetSyncEnabled();
+      if (!syncEnabled) {
+        await _vault.updateGoogleSheetSyncStatus(
+          lastAttemptAt: attemptAt,
+          endpointConfigured: false,
+          pendingCount: 0,
+          isLastSyncSuccessful: false,
+        );
+        await _settings.updateGoogleSheetSyncState(
+          syncStatus: SyncSettingsService.statusDisabled,
+        );
+        debugPrint('GOOGLE_SHEET_SYNC_SKIPPED=disabled');
+        return;
+      }
+
+      debugPrint('GOOGLE_SHEET_SYNC_STARTED');
       final endpoint = await _settings.getGoogleSheetEndpoint();
       final endpointConfigured = endpoint.isNotEmpty;
       final existingStatus = await _vault.readGoogleSheetSyncStatus();
@@ -42,10 +57,17 @@ class GoogleSheetSyncService {
           lastError: 'no_endpoint_configured',
           isLastSyncSuccessful: false,
         );
+        await _settings.updateGoogleSheetSyncState(
+          syncStatus: SyncSettingsService.statusNotConfigured,
+          lastSyncError: 'no_endpoint_configured',
+        );
         debugPrint('GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured');
         return;
       }
 
+      await _settings.updateGoogleSheetSyncState(
+        syncStatus: SyncSettingsService.statusSyncing,
+      );
       payload = await buildPayload();
       payloadCounts = _payloadCounts(payload);
       await _vault.updateGoogleSheetSyncStatus(
@@ -66,14 +88,19 @@ class GoogleSheetSyncService {
         throw Exception('http_${response.statusCode}');
       }
 
+      final successAt = DateTime.now().toIso8601String();
       await _vault.updateGoogleSheetSyncStatus(
         lastAttemptAt: attemptAt,
-        lastSuccessAt: DateTime.now().toIso8601String(),
+        lastSuccessAt: successAt,
         endpointConfigured: true,
         pendingCount: 0,
         lastPayloadCounts: payloadCounts,
         isLastSyncSuccessful: true,
         lastHttpStatus: lastHttpStatus,
+      );
+      await _settings.updateGoogleSheetSyncState(
+        syncStatus: SyncSettingsService.statusConnected,
+        lastSyncAt: successAt,
       );
       debugPrint('GOOGLE_SHEET_SYNC_SUCCESS');
     } catch (e) {
@@ -93,11 +120,20 @@ class GoogleSheetSyncService {
         isLastSyncSuccessful: false,
         lastHttpStatus: lastHttpStatus,
       );
+      await _settings.updateGoogleSheetSyncState(
+        syncStatus: SyncSettingsService.statusFailed,
+        lastSyncError: safeError,
+      );
       debugPrint('GOOGLE_SHEET_SYNC_FAILED=$safeError');
     }
   }
 
   Future<bool> retryPendingGoogleSheetSync() async {
+    if (!await _settings.isGoogleSheetSyncEnabled()) {
+      debugPrint('GOOGLE_SHEET_SYNC_RETRY_SKIPPED=disabled');
+      return false;
+    }
+
     final status = await _vault.readGoogleSheetSyncStatus();
     final pendingCount = (status['pendingCount'] as num?)?.toInt() ?? 0;
 
@@ -183,15 +219,17 @@ class GoogleSheetSyncService {
       ..followRedirects = false
       ..body = body;
 
+    final client = _client ??= http.Client();
     final streamedResponse =
-        await _client.send(request).timeout(const Duration(seconds: 20));
+        await client.send(request).timeout(const Duration(seconds: 20));
     return http.Response.fromStream(streamedResponse);
   }
 
   Future<http.Response> _getRedirect(Uri uri) async {
     final request = http.Request('GET', uri)..followRedirects = false;
+    final client = _client ??= http.Client();
     final streamedResponse =
-        await _client.send(request).timeout(const Duration(seconds: 20));
+        await client.send(request).timeout(const Duration(seconds: 20));
     return http.Response.fromStream(streamedResponse);
   }
 

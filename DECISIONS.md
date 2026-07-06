@@ -29,3 +29,10 @@
 25. For Point 48, the user-approved deployed Apps Script Web App `/exec` URL is configured in Flutter sync settings; no Google API key, OAuth secret, or service-account file is used.
 26. Point 49: Google Sheet sync failures must never block local data writes; failures are recorded in `sync_queue.json` and retried from the latest Local Data Vault snapshot.
 27. Point 49: Google Sheet sync retry should use the latest Local Data Vault snapshot and clear pending state only after confirmed success.
+28. Point 55: Google Sheet sync is optional and must be OFF by default on fresh installs.
+29. Point 55: Users must explicitly enable Google Sheet sync and configure their own Apps Script Web App `/exec` endpoint from Settings.
+30. Point 55: Disabling Google Sheet sync must stop all Google Sheet network sends without stopping SQLite, Local Data Vault export, AI vault reads, or PhonePe PDF import.
+31. Point 55 supersedes automatic endpoint configuration from Point 48: the existing developer endpoint may remain as a dev-only reference but must never be selected or enabled automatically for APK users.
+32. Point 56: Google Sheet sync must have only one active network sender path: Local Data Vault -> `GoogleSheetSyncService` -> Google Sheet. Legacy per-transaction `SheetsService` calls may remain only as no-op compatibility calls.
+33. Point 56 follow-up / 55 minimal config: For the current developer build, the Apps Script Web App `/exec` endpoint is configured in `SyncSettingsService` and consumed only by the single vault-based Google Sheet sync path.
+34. Point 55 resume: Settings may save a custom endpoint, but the effective endpoint is resolved only through `SyncSettingsService`; OFF continues to block Google Sheet network sync.

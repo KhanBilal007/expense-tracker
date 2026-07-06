@@ -1,5 +1,105 @@
 # Thread Reports
 
+## 2026-07-06 - Point 55 Resume
+
+Role: Settings + Sync Configuration Engineer
+
+Inspection result:
+
+- Settings screen already exists.
+- Google Sheet Sync section already exists.
+- Sync ON/OFF setting already exists and defaults OFF through `SyncSettingsService`.
+- Endpoint URL storage already exists through `SyncSettingsService`.
+- `GoogleSheetSyncService` already checks the enabled/disabled setting before network sync.
+- Point 56 single vault-based path remains active: Local Data Vault -> `GoogleSheetSyncService` -> Google Sheet.
+- Old `SheetsService` remains a no-op compatibility shim and was not restored.
+
+Missing work completed:
+
+- Fixed Settings/status handling so the configured Apps Script endpoint from Point 56 is recognized as a valid effective endpoint.
+- Prevented stale `no_endpoint_configured` status when the user clears the text field but the configured endpoint is still available.
+- Preserved OFF behavior: disabled sync skips Google Sheet network requests while Local Data Vault, AI Agent, and PhonePe PDF sync remain available.
+
+App code status:
+
+- No Local Data Vault schema/export structure, AI Agent logic, PhonePe PDF sync, Home, Reports, Transactions, Accounts, AI icon, bottom navigation, Dictate Mode, or calculations were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 56 Follow-up / 55 Minimal Config
+
+Role: Google Sheet Sync Configuration Engineer
+
+Scope:
+
+- Restored Google Sheet sync configuration for the single Local Data Vault based sender path.
+- Added the Apps Script Web App `/exec` endpoint in one place: `SyncSettingsService.configuredGoogleSheetEndpoint`.
+- Confirmed `GoogleSheetSyncService` continues to read endpoint configuration only through `SyncSettingsService`.
+- Kept the old `SheetsService` as a no-op compatibility shim and did not restore per-transaction network posting.
+- Preserved Local Data Vault payload sync, retry safety, and Apps Script redirect handling.
+
+App code status:
+
+- No Local Data Vault schema/export structure, app functions, AI Agent logic, PhonePe PDF sync, Home, Reports, Transactions, Accounts, AI icon, Dictate Mode, or calculations were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 56 Google Sheet Sync Path Consolidation
+
+Role: Backend Sync Cleanup Engineer
+
+Scope:
+
+- Inspected Google Sheet sync services and call sites for duplicate sender paths.
+- Confirmed `GoogleSheetSyncService` is the only service with an HTTP client and the only active Google Sheet network sender.
+- Kept Local Data Vault export and local folder JSON behavior unchanged.
+- Tightened legacy `SheetsService.appendTransaction(...)` so old per-transaction call sites remain harmless compatibility no-ops and never report a direct send success.
+- Preserved Google Sheet OFF gating, ON + endpoint vault sync, retry safety, and Apps Script redirect handling.
+
+App code status:
+
+- No app functions, Home, Reports, Transactions UI, Accounts UI, PhonePe PDF sync, AI Agent, Local Data Vault schema, financial calculations, AI icon, Dictate Mode, or records were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 55 Optional Google Sheet Sync
+
+Role: Settings + Sync Configuration Engineer
+
+Scope:
+
+- Expanded `SyncSettingsService` with `googleSheetSyncEnabled`, `googleSheetEndpointUrl`, `lastSyncAt`, `lastSyncError`, and `syncStatus` persistence.
+- Fresh installs now default Google Sheet sync to OFF and do not inherit the developer endpoint.
+- Kept the existing developer endpoint as an explicit dev-only constant; it is never selected automatically.
+- Added Settings controls for enable/disable, endpoint entry, endpoint validation, Sync Now, Connected/Disabled/Failed/Ready status, last sync time, and last error.
+- Updated `GoogleSheetSyncService` to skip before creating an HTTP client when disabled and log `GOOGLE_SHEET_SYNC_SKIPPED=disabled`.
+- Preserved no-endpoint safety, redirect handling, failure status, and pending retry behavior when sync is enabled.
+- Consolidated the legacy `SheetsService` configuration with the active sync settings and removed its direct network post so Local Data Vault sync is the single sender.
+
+Privacy and local behavior:
+
+- Friend APK installations cannot send data to the owner's Sheet unless the user explicitly enables sync and saves an endpoint.
+- SQLite writes, Local Data Vault export, AI vault reads, and PhonePe PDF import remain active when Google Sheet sync is disabled.
+
+App code status:
+
+- No AI Agent logic, Local Data Vault structure, PhonePe PDF sync, Home calculations, Reports, Transactions logic, Accounts logic, AI icon, Dictate Mode, or records were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-06 - Point 53 Home Light Background
+
+Role: Frontend Engineer
+
+Scope:
+
+- Patched `lib/screens/home_screen.dart` only for Home theme-aware colors.
+- Replaced the permanently dark Home canvas with a pure white background when app theme brightness is light.
+- Kept the original navy gradient, dark cards, borders, shadows, and text colors in dark mode.
+- Added light-mode white cards, neutral borders/shadows, dark primary text, and readable secondary text.
+- Kept the compact bottom navigation background, icon colors, labels, sizing, and behavior unchanged.
+
+App code status:
+
+- No Home calculations, card layout, navigation, AI Agent, Local Data Vault, Google Sheet sync, Transactions, Reports, Accounts, PhonePe sync, Dictate Mode, or other app features were changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 11 Full Project Bug Audit
 
 Role: QA / DevOps / Documentation Engineer
