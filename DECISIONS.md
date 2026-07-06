@@ -24,3 +24,6 @@
 20. Google Sheet sync must use a configurable endpoint and must not hardcode credentials, API keys, OAuth secrets, or service-account JSON.
 21. If no Google Sheet endpoint is configured, sync must skip safely without crashing the app.
 22. AI Agent continues reading Local Data Vault and should not read Google Sheet directly.
+23. Google Apps Script receiver code can be stored in repo documentation for manual copy/deploy; deployed Web App URLs may be configured only when the user explicitly approves them, and credentials must not be committed.
+24. Google Sheet sync writes a backup/reporting copy of Local Data Vault snapshots and must not replace SQLite as the source of truth.
+25. For Point 48, the user-approved deployed Apps Script Web App `/exec` URL is configured in Flutter sync settings; no Google API key, OAuth secret, or service-account file is used.

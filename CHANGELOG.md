@@ -2,6 +2,8 @@
 
 ## 2026-07-05
 
+- Point 48: Configured the deployed Google Apps Script Web App `/exec` endpoint for Google Sheet sync and kept safe failure/success logging.
+- Point 47: Added Google Apps Script receiver documentation and setup guide for writing Local Data Vault payloads into Google Sheet tabs.
 - Point 45: Added safe Google Sheet sync preparation from Local Data Vault with a configurable Apps Script endpoint, payload builder, debug logs, and `sync_queue.json` status tracking.
 - Point 46: Improved AI vault account-name typo matching with staged fuzzy scoring and confidence-based clarification.
 - Point 46: Connected AI finance answers to Local Data Vault JSON records with fuzzy account matching and vault-based calculations.

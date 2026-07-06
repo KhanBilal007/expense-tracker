@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 48 applied: Google Apps Script Web App `/exec` endpoint is configured in Flutter sync settings for real Google Sheet auto-sync.
+- Point 47 documented: Google Apps Script receiver code and Google Sheet setup guide were added for Local Data Vault sync.
 - Point 45 applied: Google Sheet sync service now reads Local Data Vault and safely posts to a configurable Apps Script endpoint.
 - Point 46 refined: AI vault account matching now handles spelling mistakes with staged fuzzy confidence rules.
 - Point 46 applied: AI Agent finance answers now read from Local Data Vault through a vault reader service.
@@ -130,6 +132,12 @@ Expense Tracker Flutter app.
 
 ## Latest Google Sheet Sync Update
 
+- Point 48 configured the deployed Google Apps Script Web App endpoint in `SyncSettingsService`.
+- Endpoint validation now requires the configured URL to end with `/exec`.
+- Google Sheet sync continues to send Local Data Vault payloads through `GoogleSheetSyncService`.
+- Point 47 added repo documentation/script files for the Google Apps Script receiver and setup process.
+- Receiver script writes Local Data Vault payloads into `Accounts`, `Transactions`, `Expenses`, `MoneyAdded`, `Transfers`, `Summaries`, `Metadata`, and `SyncLog` tabs.
+- Setup guide records Google Sheet setup steps, Web App deployment steps, endpoint placement, test payload, and verification checklist.
 - Added `lib/services/google_sheet_sync_service.dart`.
 - Added `lib/services/sync_settings_service.dart`.
 - Google Sheet sync reads Local Data Vault JSON files and prepares one payload for a future Google Apps Script Web App endpoint.

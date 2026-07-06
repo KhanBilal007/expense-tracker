@@ -1,5 +1,43 @@
 # Thread Reports
 
+## 2026-07-06 - Point 48 Google Sheet Endpoint Configuration
+
+Role: Google Sheet Sync Engineer
+
+Scope:
+
+- Patched `lib/services/sync_settings_service.dart`.
+- Added the deployed Google Apps Script Web App `/exec` URL as the default Google Sheet sync endpoint.
+- Kept SharedPreferences endpoint override support through `google_sheet_sync_endpoint`.
+- Added a guard so endpoint reading only returns a URL ending with `/exec`.
+- Existing `GoogleSheetSyncService` continues to send Local Data Vault payloads and log `GOOGLE_SHEET_SYNC_SUCCESS` or `GOOGLE_SHEET_SYNC_FAILED=<safe error>`.
+
+App code status:
+
+- No Home, Reports, Transactions, Accounts, AI Agent, AI icon, Dictate Mode, Local Data Vault structure, calculations, record deletion, or UI code was changed.
+- No Google API keys, OAuth secrets, or service-account files were added.
+- Google Sheet sync uses only the Apps Script Web App URL.
+
+## 2026-07-06 - Point 47 Google Apps Script Receiver Documentation
+
+Role: Google Sheet Backend Engineer
+
+Scope:
+
+- Added `docs/google_apps_script_expense_tracker_sync.js`.
+- Added `docs/GOOGLE_SHEET_SYNC_SETUP.md`.
+- Documented the Google Apps Script Web App receiver for Local Data Vault payloads.
+- Documented Google Sheet setup, Web App deployment, future Flutter endpoint placement, test payload, and manual verification steps.
+- Required tabs are `Accounts`, `Transactions`, `Expenses`, `MoneyAdded`, `Transfers`, `Summaries`, `Metadata`, and `SyncLog`.
+
+App code status:
+
+- No Flutter app code was edited.
+- No UI, AI, Local Data Vault, calculations, reset logic, PDF sync behavior, API keys, OAuth secrets, service-account JSON, or credentials were changed.
+- SQLite remains the source of truth.
+- Google Sheet remains backup/reporting copy only.
+- AI continues reading Local Data Vault.
+
 ## 2026-07-06 - Point 45 Google Sheet Sync Preparation
 
 Role: Google Sheet Sync Engineer
