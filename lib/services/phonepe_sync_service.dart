@@ -28,6 +28,8 @@ class PhonePeSyncService {
 
   Future<PhonePeSyncResult> sync({
     required Future<bool> Function() onNeedFolderPick,
+    required Future<double?> Function(String accountName)
+        onNeedCurrentPhonePeBalance,
   }) async {
     debugPrint('[PhonePeSync] ===== Shared PhonePe sync started =====');
     try {
@@ -109,20 +111,66 @@ class PhonePeSyncService {
 
       final accountId = importAccount['id'] as int;
       final accountName = importAccount['name'] as String;
+      final existingAppBalanceBeforeImport =
+          (importAccount['balance'] as num?)?.toDouble() ?? 0.0;
+      final hasOpeningBalance =
+          await _db.hasFirstTimePhonePeOpeningBalance(accountId);
+
+      int openingBalanceCount = 0;
+      if (!hasOpeningBalance) {
+        final realPhonePeBalance =
+            await onNeedCurrentPhonePeBalance(accountName);
+        if (realPhonePeBalance == null) {
+          return const PhonePeSyncResult(
+            importedCount: 0,
+            skippedCount: 0,
+            dataChanged: false,
+            isError: true,
+            message: 'PhonePe sync cancelled. Current PhonePe balance is required for first-time sync.',
+          );
+        }
+
+        final statementNet = newTransactions.fold<double>(
+          0.0,
+          (total, transaction) =>
+              total +
+              (transaction.type == 'income'
+                  ? transaction.amount
+                  : -transaction.amount),
+        );
+        final openingBalance = realPhonePeBalance -
+            existingAppBalanceBeforeImport -
+            statementNet;
+        openingBalanceCount =
+            await _db.insertFirstTimePhonePeOpeningBalance(
+          accountId: accountId,
+          amount: openingBalance,
+          refreshVault: false,
+        );
+        debugPrint(
+          '[PhonePeSync] First-time opening balance: real=$realPhonePeBalance, existing=$existingAppBalanceBeforeImport, statementNet=$statementNet, opening=$openingBalance, inserted=$openingBalanceCount',
+        );
+      }
+
       debugPrint(
           '[PhonePeSync] Importing into $accountName ($accountId): ${newTransactions.length} new transaction(s).');
       final savedCount = await _db.insertPhonePeTransactions(
         newTransactions.map((transaction) => transaction.toMap()).toList(),
         accountId: accountId,
+        refreshVault: false,
       );
+      if (savedCount > 0 || openingBalanceCount > 0) {
+        await _db.exportAllDataToLocalVault();
+      }
 
       return PhonePeSyncResult(
         importedCount: savedCount,
         skippedCount: skippedCount,
-        dataChanged: savedCount > 0,
+        dataChanged: savedCount > 0 || openingBalanceCount > 0,
         isError: false,
-        message:
-            'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.',
+        message: openingBalanceCount > 0
+            ? 'Created First-time Opening Balance. Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.'
+            : 'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.',
       );
     } catch (error, stackTrace) {
       debugPrint('[PhonePeSync] Sync failed: $error');

@@ -135,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final result = await _phonePeSync.sync(
         onNeedFolderPick: _showFolderPickDialog,
+        onNeedCurrentPhonePeBalance: _showCurrentPhonePeBalanceDialog,
       );
       if (!mounted) return;
       if (result.dataChanged) await _load();
@@ -168,6 +169,57 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     return confirmed ?? false;
+  }
+
+  Future<double?> _showCurrentPhonePeBalanceDialog(String accountName) async {
+    final controller = TextEditingController();
+    try {
+      String? errorText;
+      final balance = await showDialog<double>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('Enter your current PhonePe balance.'),
+            content: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Current PhonePe balance',
+                helperText: 'Used once for $accountName first-time sync',
+                prefixText: '₹ ',
+                errorText: errorText,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = double.tryParse(
+                      controller.text.trim().replaceAll(',', ''));
+                  if (value == null) {
+                    setDialogState(() {
+                      errorText = 'Enter a valid amount.';
+                    });
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(value);
+                },
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        ),
+      );
+      return balance;
+    } finally {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.dispose();
+      });
+    }
   }
 
   void _showSnack(String message, {bool error = false}) {

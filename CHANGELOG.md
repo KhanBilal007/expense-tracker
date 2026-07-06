@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-07
+
+- Point 59 Final Bug Fix: Deferred first-time PhonePe balance dialog controller disposal and reduced PhonePe import vault export/Google Sheet sync to one final run after the batch completes.
+- Point 59 Local Vault Export Bug Fix: Made Local Data Vault JSON writes safer with serialized exports, unique flushed temp files, directory recreation, and direct-write fallback on rename failure.
+- Point 59 Follow-up Bug Fix: Fixed first-time PhonePe balance dialog `TextEditingController` lifecycle and added invalid amount validation without changing the Opening Balance formula.
+- Point 59 Correction: First-time PhonePe Sync now creates a `First-time Opening Balance` / `Opening Balance` income record using the existing opening-balance formula and stable duplicate protection.
+- Point 57: Removed the visible Hindi Language option from Settings while keeping Dark Mode and Google Sheet Sync settings unchanged.
+
 ## 2026-07-05
 
 - Point 53: Applied the base Home light-mode theme fix for bottom navigation colors only; optional 3D/button styling was not applied and dimensions were unchanged.

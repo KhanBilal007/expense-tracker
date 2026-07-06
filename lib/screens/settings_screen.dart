@@ -276,20 +276,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ExpenseApp.of(context)?.toggleTheme(v);
                 },
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              // Item 4: Hindi / English toggle
-              SwitchListTile(
-                secondary: const Text('अ',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                title: const Text('Hindi Language'),
-                subtitle: Text(_isHindi ? 'हिंदी में' : 'In English'),
-                value: _isHindi,
-                onChanged: (v) {
-                  setState(() => _isHindi = v);
-                  ExpenseApp.of(context)?.toggleLanguage(v);
-                },
-              ),
             ])),
 
         _header('DEFAULT ACCOUNT'),

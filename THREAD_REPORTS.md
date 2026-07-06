@@ -1,5 +1,112 @@
 # Thread Reports
 
+## 2026-07-07 - Point 59 Final Bug Fix
+
+Role: Frontend Engineer + Backend Engineer
+
+Scope:
+
+- Fixed the remaining first-time PhonePe current-balance dialog lifecycle risk in both Home Sync and Transactions Sync.
+- Kept controller creation before `showDialog`, awaited the dialog result, and deferred controller disposal to the next frame after the dialog returns.
+- Confirmed the dialog uses only dialog-local validation state and does not call parent `setState` from inside the dialog builder.
+- Added optional `refreshVault` flags to first-time opening-balance insertion and PhonePe transaction import.
+- Updated the shared PhonePe sync flow to suppress intermediate vault exports and run exactly one final `exportAllDataToLocalVault()` after opening balance plus statement import completes.
+
+Preserved behavior:
+
+- Opening Balance formula remains unchanged: `openingBalance = realPhonePeBalance - existingAppBalanceBeforeImport - statementNet`.
+- `First-time Opening Balance` and `Opening Balance` wording remains unchanged.
+- Duplicate protection with `phonepe_opening_balance_<accountId>` remains unchanged.
+- PhonePe import, Local Data Vault export, Google Sheet sync ON/OFF behavior, AI vault reads, old `SheetsService` no-op behavior, Home layout, bottom navigation UI, and Settings were not changed.
+
+Command status:
+
+- No terminal or Flutter commands were run.
+
+## 2026-07-07 - Point 59 Local Vault Export Bug Fix
+
+Role: Backend Engineer
+
+Scope:
+
+- Patched `lib/services/local_data_vault_service.dart` only for safer JSON file export.
+- Serialized `exportAll(...)` calls with an internal queue so full vault exports do not overlap each other.
+- Ensured the vault directory is created recursively before every JSON file write.
+- Replaced fixed temp file names like `accounts.json.tmp` with unique timestamped temp files.
+- Writes now use `flush: true` and confirm the temp file exists before rename.
+- If rename fails, the service writes directly to the target file so `accounts.json` is not left missing.
+- Existing Local Data Vault schema and debug verification logs were preserved.
+
+App code status:
+
+- No PhonePe parser, AI Agent logic, Google Sheet sync logic, Home UI, bottom navigation, Settings, Local Data Vault schema, or unrelated app parts were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-07 - Point 59 Follow-up Balance Dialog Lifecycle Fix
+
+Role: Frontend Engineer + Backend Engineer
+
+Scope:
+
+- Fixed the first-time PhonePe current-balance dialog in both Home Sync and Transactions Sync.
+- Changed the dialog methods to await `showDialog<double>` before disposing `TextEditingController`.
+- Added inline validation message `Enter a valid amount.` for empty/invalid input.
+- Preserved Cancel behavior: closes safely and returns `null`, allowing the shared sync service to show the existing cancellation message.
+- Preserved Continue behavior: parses the entered balance and returns it to the shared PhonePe sync service.
+
+Opening Balance status:
+
+- Existing formula remains unchanged: `openingBalance = realPhonePeBalance - existingAppBalanceBeforeImport - statementNet`.
+- `First-time Opening Balance` / `Opening Balance` wording remains unchanged.
+- Stable duplicate key `phonepe_opening_balance_<accountId>` remains unchanged.
+
+App code status:
+
+- No Home layout, bottom navigation UI, AI icon, Google Sheet sync settings, Local Data Vault structure, old `SheetsService`, Dictate Mode, complex reconciliation, or unrelated app parts were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-07 - Point 59 Correction First-Time PhonePe Opening Balance
+
+Role: Backend Engineer + Frontend Engineer
+
+Scope:
+
+- Updated the shared PhonePe sync flow to ask for the current PhonePe balance only when the selected account has no prior first-time PhonePe opening-balance record.
+- Applied the formula `openingBalance = realPhonePeBalance - existingAppBalanceBeforeImport - statementNet`.
+- Added one system income record named `First-time Opening Balance`.
+- Added/uses category `Opening Balance`.
+- Added stable duplicate protection with `dedupe_key = phonepe_opening_balance_<accountId>`.
+- Kept normal PhonePe statement import behavior: credits import as income and debits import as expense.
+- Wired the first-time balance prompt into both existing Sync entry points: Home bottom nav Sync and Transactions Sync.
+
+Behavior notes:
+
+- Future syncs for the same account do not ask for current PhonePe balance again and do not create another first-time opening-balance record.
+- Local Data Vault refresh remains triggered by the database write hooks.
+- Google Sheet sync continues to follow the existing ON/OFF setting through the Local Data Vault path.
+- AI can see the opening-balance record through Local Data Vault transactions/money-added records.
+
+App code status:
+
+- No complex reconciliation, broader statement recalculation, Home layout, bottom navigation layout, AI icon, Google Sheet sync settings, old `SheetsService`, Dictate Mode, or unrelated app parts were changed.
+- No terminal or Flutter commands were run.
+
+## 2026-07-07 - Point 57 Remove Settings Language Option
+
+Role: Frontend Engineer
+
+Scope:
+
+- Removed only the visible `Hindi Language` switch from the Settings Appearance card.
+- Removed the divider that belonged only to that Language switch.
+- Kept Dark Mode visible and unchanged.
+- Kept Google Sheet Sync settings visible and unchanged.
+
+App code status:
+
+- No AI Agent, Local Data Vault, Google Sheet sync logic, PhonePe PDF sync, Home screen, bottom navigation, Accounts, Transactions, Reports, app theme logic, or app functionality was changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 53 Home Base Light Mode Fix
 
 Role: Frontend Engineer

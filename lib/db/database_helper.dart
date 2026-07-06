@@ -398,6 +398,13 @@ class DatabaseHelper {
   Future<void> deleteCategory(int id) async =>
       (await database).delete('categories', where: 'id=?', whereArgs: [id]);
 
+  Future<int> _ensureCategoryId(DatabaseExecutor db, String name) async {
+    final existing =
+        await db.query('categories', where: 'name=?', whereArgs: [name]);
+    if (existing.isNotEmpty) return existing.first['id'] as int;
+    return db.insert('categories', {'name': name});
+  }
+
   Future<List<Map<String, dynamic>>> getTransactions(
       {int? limit,
       String? type,
@@ -505,6 +512,77 @@ class DatabaseHelper {
     final id = await (await database).insert('transactions', data);
     _refreshLocalDataVaultSafely();
     return id;
+  }
+
+  Future<bool> hasFirstTimePhonePeOpeningBalance(int accountId) async {
+    final db = await database;
+    final rows = await db.query(
+      'transactions',
+      columns: ['id'],
+      where: 'account_id=? AND dedupe_key=?',
+      whereArgs: [accountId, 'phonepe_opening_balance_$accountId'],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> insertFirstTimePhonePeOpeningBalance({
+    required int accountId,
+    required double amount,
+    bool refreshVault = true,
+  }) async {
+    final db = await database;
+    final dedupeKey = 'phonepe_opening_balance_$accountId';
+    int inserted = 0;
+
+    await db.transaction((txn) async {
+      final existing = await txn.query(
+        'transactions',
+        columns: ['id'],
+        where: 'account_id=? AND dedupe_key=?',
+        whereArgs: [accountId, dedupeKey],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) return;
+
+      final accRows =
+          await txn.query('accounts', where: 'id=?', whereArgs: [accountId]);
+      if (accRows.isEmpty) return;
+
+      final oldBal = (accRows.first['balance'] as num).toDouble();
+      final newBal = oldBal + amount;
+      final categoryId = await _ensureCategoryId(txn, 'Opening Balance');
+
+      await txn.update(
+        'accounts',
+        {'balance': newBal},
+        where: 'id=?',
+        whereArgs: [accountId],
+      );
+
+      final insertedId = await txn.insert(
+        'transactions',
+        {
+          'account_id': accountId,
+          'category_id': categoryId,
+          'type': 'income',
+          'amount': amount,
+          'description': 'First-time Opening Balance',
+          'date': DateTime.now().toIso8601String(),
+          'balance_after': newBal,
+          'source': 'phonepe_opening_balance',
+          'transaction_id': dedupeKey,
+          'dedupe_key': dedupeKey,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      if (insertedId > 0) inserted = 1;
+    });
+
+    if (inserted > 0 && refreshVault) {
+      _refreshLocalDataVaultSafely();
+    }
+    return inserted;
   }
 
   double _balanceEffectForTransaction(String type, double amount) {
@@ -1413,6 +1491,7 @@ class DatabaseHelper {
   Future<int> insertPhonePeTransactions(
     List<Map<String, dynamic>> txnMaps, {
     required int accountId,
+    bool refreshVault = true,
   }) async {
     final db = await database;
     final importAccount =
@@ -1476,7 +1555,7 @@ class DatabaseHelper {
       }
     });
     debugPrint('[PhonePeImport] saved count=$inserted');
-    if (inserted > 0) {
+    if (inserted > 0 && refreshVault) {
       _refreshLocalDataVaultSafely();
     }
     return inserted;

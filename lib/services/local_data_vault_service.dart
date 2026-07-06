@@ -15,6 +15,7 @@ class LocalDataVaultService {
   static const summariesFile = 'summaries.json';
   static const metadataFile = 'metadata.json';
   static const syncQueueFile = 'sync_queue.json';
+  static Future<void> _exportQueue = Future<void>.value();
 
   Future<Directory> getVaultDirectory() async {
     final docs = await getApplicationDocumentsDirectory();
@@ -29,7 +30,13 @@ class LocalDataVaultService {
     return (await getVaultDirectory()).path;
   }
 
-  Future<void> exportAll(Map<String, dynamic> snapshot) async {
+  Future<void> exportAll(Map<String, dynamic> snapshot) {
+    final queuedExport = _exportQueue.then((_) => _exportAllNow(snapshot));
+    _exportQueue = queuedExport.catchError((_) {});
+    return queuedExport;
+  }
+
+  Future<void> _exportAllNow(Map<String, dynamic> snapshot) async {
     final dir = await getVaultDirectory();
 
     await _writeJsonFile(dir, accountsFile, snapshot['accounts'] ?? []);
@@ -192,15 +199,35 @@ class LocalDataVaultService {
     String fileName,
     Object value,
   ) async {
+    await dir.create(recursive: true);
     final file = File('${dir.path}${Platform.pathSeparator}$fileName');
-    final temp = File('${file.path}.tmp');
+    final temp = File(
+      '${file.path}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+    );
     const encoder = JsonEncoder.withIndent('  ');
+    final json = encoder.convert(value);
 
-    await temp.writeAsString(encoder.convert(value));
-    if (await file.exists()) {
-      await file.delete();
+    try {
+      await temp.writeAsString(json, flush: true);
+      if (!await temp.exists()) {
+        throw const FileSystemException('Temp vault file was not created');
+      }
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await temp.rename(file.path);
+    } catch (error) {
+      debugPrint(
+        '[LocalDataVault] atomic write fallback for $fileName: $error',
+      );
+      await file.parent.create(recursive: true);
+      await file.writeAsString(json, flush: true);
+      if (await temp.exists()) {
+        try {
+          await temp.delete();
+        } catch (_) {}
+      }
     }
-    await temp.rename(file.path);
   }
 
   Future<void> _printVerificationLog(

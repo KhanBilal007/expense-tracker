@@ -64,3 +64,8 @@
 61. [x] Point 55 Resume: Finish Settings sync status/config behavior without disturbing Point 56. Fixed 2026-07-06.
 62. [x] Point 53: Prepare Home dark-mode code/detail package for Claude light-theme conversion. Fixed 2026-07-06.
 63. [x] Point 53: Apply Home base light-mode theme fix without optional 3D styling. Fixed 2026-07-06.
+64. [x] Point 57: Remove visible Language option from Settings. Fixed 2026-07-07.
+65. [x] Point 59 Correction: Use First-time Opening Balance formula for first PhonePe Sync. Fixed 2026-07-07.
+66. [x] Point 59 Follow-up Bug Fix: Fix first-time PhonePe balance dialog controller lifecycle crash. Fixed 2026-07-07.
+67. [x] Point 59 Local Vault Export Bug Fix: Make Local Data Vault JSON writes safe after PhonePe import. Fixed 2026-07-07.
+68. [x] Point 59 Final Bug Fix: Prevent balance-dialog lifecycle crash and double Google Sheet sync after PhonePe import. Fixed 2026-07-07.

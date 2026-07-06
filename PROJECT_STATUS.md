@@ -19,6 +19,11 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 59 final bug fix applied: first-time PhonePe balance dialogs now avoid controller teardown races, and PhonePe sync now performs one final Local Data Vault / Google Sheet sync after opening balance plus import completes.
+- Point 59 Local Vault Export Bug Fix applied: Local Data Vault JSON writes now serialize full exports, recreate the vault directory before each file write, use unique flushed temp files, and fall back to direct target writes if rename fails.
+- Point 59 follow-up bug fix applied: first-time PhonePe balance dialogs now await `showDialog` before disposing their `TextEditingController`, preventing the disposed-controller red screen.
+- Point 59 Correction applied: first-time PhonePe Sync now asks for current PhonePe balance once per account and creates a `First-time Opening Balance` / `Opening Balance` income record using the existing opening-balance formula.
+- Point 57 applied: Settings no longer shows the visible Hindi Language option; Dark Mode and Google Sheet Sync settings remain visible.
 - Point 53 base light-mode fix applied: Home bottom navigation now uses theme-aware nav background, border, shadow, inactive item background, and light-readable AI/Sync label colors without dimension/layout changes.
 - Point 53 documentation package created: `docs/HOME_SCREEN_DARK_MODE_CODE_PACKAGE.md` captures Home dark-mode Flutter code, colors, fixed dimensions, assets, and a Claude-ready light-theme prompt.
 - Point 55 resume completed: existing Settings-based Google Sheet controls were inspected and the remaining endpoint/status mismatch was fixed without disturbing Point 56's single vault-based sync path.
