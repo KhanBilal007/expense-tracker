@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../navigation/app_routes.dart';
+import '../services/phonepe_sync_service.dart';
 import '../utils/money_formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _db = DatabaseHelper();
+  final _phonePeSync = PhonePeSyncService();
 
   double _totalBalance = 0;
   double _todayExpense = 0;
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _homeAccounts = [];
   Map<int, Map<String, double>> _homeAccountSummaries = {};
   bool _loading = true;
+  bool _syncing = false;
 
   static const _bgTop = Color(0xFF071B35);
   static const _bgBottom = Color(0xFF020811);
@@ -96,6 +99,58 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _syncPhonePe() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    try {
+      final result = await _phonePeSync.sync(
+        onNeedFolderPick: _showFolderPickDialog,
+      );
+      if (!mounted) return;
+      if (result.dataChanged) await _load();
+      if (!mounted) return;
+      _showSnack(result.message, error: result.isError);
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<bool> _showFolderPickDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Select PhonePe Statement'),
+        content: const Text(
+          'Your Downloads folder could not be accessed directly.\n\n'
+          'Please select your PhonePe statement file once. The app will '
+          'remember the folder and find new statements automatically next time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? Colors.red.shade700 : Colors.green.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   String _money(num value) => '₹${formatMoneyWhole(value)}';
@@ -816,7 +871,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 () => Navigator.pushNamed(context, AppRoutes.ai)
                     .then((_) => _load()),
                 assetPath: _aiIconAsset),
-            _navItem(Icons.sync_rounded, 'Sync', _textSub, () => _load()),
+            _navItem(Icons.sync_rounded, 'Sync', _textSub, _syncPhonePe),
           ],
         ),
       ),

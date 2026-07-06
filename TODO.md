@@ -47,3 +47,4 @@
 44. [x] Point 39: Fix AI bottom navigation icon size and label visibility without card-style redesign. Fixed 2026-07-06.
 45. [x] Point 39: Reduce bottom navigation height and prevent Recent Transactions overlap. Fixed 2026-07-06.
 46. [x] Point 39: Try compact 54px bottom navigation sizing. Fixed 2026-07-06.
+47. [x] Point 52: Reuse Transactions PhonePe PDF sync from the Home bottom navigation Sync button. Fixed 2026-07-06.

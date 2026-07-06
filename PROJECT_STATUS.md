@@ -19,6 +19,7 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 52 applied: Home bottom navigation Sync and Transactions Sync now use one shared PhonePe PDF sync service with automatic import, duplicate skipping, and a download-first no-file message.
 - Point 39 compact nav trial applied: bottom navigation height is now 54px with tighter icon, label, and gap sizing to reduce Recent Transactions overlap risk.
 - Point 39 height follow-up applied: Home bottom navigation height was reduced and scroll bottom padding was increased so the bar no longer overlaps Recent Transactions.
 - Point 39 follow-up applied: AI bottom navigation icon now fits the existing nav slot and labels remain visible without card-style redesign.

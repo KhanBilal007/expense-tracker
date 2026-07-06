@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
-import '../services/downloads_scanner_service.dart';
-import '../services/phonepe_statement_parser.dart';
+import '../services/phonepe_sync_service.dart';
 import '../utils/money_formatter.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -13,6 +12,7 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   final _db = DatabaseHelper();
+  final _phonePeSync = PhonePeSyncService();
   List<Map<String, dynamic>> _all = [],
       _filtered = [],
       _accounts = [],
@@ -251,94 +251,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     debugPrint('[TransactionsScreen] ===== Sync PhonePe button tapped =====');
     setState(() => _syncing = true);
     try {
-      debugPrint(
-          '[TransactionsScreen] Calling DownloadsScannerService.findLatestStatement()...');
-      final scanResult = await DownloadsScannerService.findLatestStatement(
+      final result = await _phonePeSync.sync(
         onNeedFolderPick: _showFolderPickDialog,
       );
-      if (!scanResult.success) {
-        debugPrint('[TransactionsScreen] Scan failed: ${scanResult.error}');
-        final msg = scanResult.error ??
-            'No PhonePe statement found in Downloads. Please download the latest PhonePe statement and try again.';
-        _snack(msg, error: true);
-        return;
-      }
-
-      final file = scanResult.file!;
-      final ext = file.path.split('.').last.toLowerCase();
-      debugPrint(
-          '[TransactionsScreen] Statement file found: ${file.path} (extension: .$ext)');
-
-      List<PhonePeTransaction> parsed;
-      try {
-        parsed = ext == 'pdf'
-            ? await PhonePeStatementParser.parsePdf(file)
-            : await PhonePeStatementParser.parseCsv(file);
-      } catch (e) {
-        debugPrint('[TransactionsScreen] Parser threw an exception: $e');
-        _snack('Could not parse statement: $e', error: true);
-        return;
-      }
-      debugPrint(
-          '[TransactionsScreen] Parser finished. Transactions parsed: ${parsed.length}');
-
-      if (parsed.isEmpty) {
-        _snack('Statement found, but no transactions could be detected.',
-            error: false);
-        return;
-      }
-
-      final allKeys = parsed.map((t) => t.dedupeKey).toList();
-      final newKeySet = await _db.filterNewDedupeKeys(allKeys);
-      final newTxns = parsed
-          .where((t) => newKeySet.contains(t.dedupeKey))
-          .toList()
-        ..sort((a, b) => b.dateTime.compareTo(a.dateTime)); // newest first
-      final skippedCount = parsed.length - newTxns.length;
-      debugPrint(
-          '[TransactionsScreen] New: ${newTxns.length}, skipped duplicates: $skippedCount');
-
-      if (newTxns.isEmpty) {
-        _snack(
-            'No new transactions found. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.',
-            error: false);
-        return;
-      }
-
-      final accounts = await _db.getAccounts();
-      if (accounts.isEmpty) {
-        _snack('Please create an account first.', error: true);
-        return;
-      }
-
-      final defaultAccountId = await _db.getDefaultAccountId();
-      debugPrint('[PhonePeImport] defaultAccountId=$defaultAccountId');
-      final importAccount = await _db.resolveImportAccount();
-      if (importAccount == null) {
-        _snack('Please create an account first.', error: true);
-        return;
-      }
-      final accountId = importAccount['id'] as int;
-      final selectedAccountName = importAccount['name'] as String;
-      debugPrint('[PhonePeImport] selected import accountId=$accountId');
-      debugPrint(
-          '[PhonePeImport] selected import account name=$selectedAccountName');
-      debugPrint(
-          '[TransactionsScreen] PhonePe import account selected: $selectedAccountName ($accountId)');
-
-      debugPrint(
-          '[TransactionsScreen] Auto-importing ${newTxns.length} new transaction(s)...');
-      final savedCount = await _db.insertPhonePeTransactions(
-        newTxns.map((t) => t.toMap()).toList(),
-        accountId: accountId,
-      );
-      debugPrint('[TransactionsScreen] Auto-import saved count=$savedCount');
-
-      if (savedCount > 0) {
-        await _load(); // refresh transaction list, newest first (already sorted by DB query)
-      }
-      _snack(
-          'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.');
+      if (!mounted) return;
+      if (result.dataChanged) await _load();
+      if (!mounted) return;
+      _snack(result.message, error: result.isError);
     } finally {
       if (mounted) setState(() => _syncing = false);
       debugPrint('[TransactionsScreen] ===== Sync PhonePe flow finished =====');

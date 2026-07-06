@@ -26,6 +26,8 @@ class ScanResult {
 ///      parent folder for all future syncs.
 class DownloadsScannerService {
   static const _prefKey = 'phonepe_folder_path';
+  static const noStatementMessage =
+      'Please download the PhonePe statement PDF first, then tap Sync again.';
 
   static final _keywords = [
     'phonepe',
@@ -62,6 +64,10 @@ class DownloadsScannerService {
       await prefs.setString(_prefKey, '/storage/emulated/0/Download');
       debugPrint(
           '[DownloadsScanner] Found via direct access. Remembered path for next time.');
+      return direct;
+    }
+    if (direct.error == noStatementMessage) {
+      debugPrint('[DownloadsScanner] Downloads is accessible but has no statement.');
       return direct;
     }
 
@@ -195,9 +201,7 @@ class DownloadsScannerService {
       if (matches.isEmpty) {
         debugPrint(
             '[DownloadsScanner] NO MATCHING PHONEPE FILE FOUND in ${dir.path}');
-        return const ScanResult.notFound(
-          'No PhonePe statement found in Downloads. Please download the latest PhonePe statement and try again.',
-        );
+        return const ScanResult.notFound(noStatementMessage);
       }
 
       // Prefer PDF over CSV/TXT if both exist among the newest matches

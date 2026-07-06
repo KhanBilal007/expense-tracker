@@ -2,6 +2,7 @@
 
 ## 2026-07-05
 
+- Point 52: Extracted one shared PhonePe statement sync service and wired both Transactions Sync and Home bottom navigation Sync to it, including the download-first no-file message.
 - Point 39: Tried a more compact Home bottom navigation at 54px height with 24px AI icon, 21px Home/Sync icons, and tighter label spacing.
 - Point 39: Reduced Home bottom navigation height from 76px to 64px and increased scroll bottom padding to prevent overlap with Recent Transactions.
 - Point 39: Adjusted AI bottom navigation icon to 28px and tightened existing nav label spacing to avoid overflow without redesigning the bar.

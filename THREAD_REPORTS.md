@@ -1,5 +1,29 @@
 # Thread Reports
 
+## 2026-07-06 - Point 52 Shared PhonePe Sync
+
+Role: Frontend + PDF Sync Bug Fix Engineer
+
+Scope:
+
+- Added `lib/services/phonepe_sync_service.dart` as the single PhonePe scan, parse, dedupe, account-resolution, and auto-import flow.
+- Updated `lib/screens/transactions_screen.dart` to call the shared sync service instead of owning a separate implementation.
+- Updated the Home bottom navigation Sync item in `lib/screens/home_screen.dart` to call the same shared service and refresh Home after imported data changes.
+- Updated `lib/services/downloads_scanner_service.dart` so an accessible Downloads folder with no statement returns: `Please download the PhonePe statement PDF first, then tap Sync again.`
+- Kept the one-time folder picker fallback only for cases where Downloads cannot be accessed directly.
+- Preserved result messages for imported transactions, skipped duplicates, no new transactions, parser failures, and missing accounts.
+
+Data refresh status:
+
+- `DatabaseHelper.insertPhonePeTransactions(...)` remains the unchanged import path.
+- Its existing successful-import hook refreshes Local Data Vault.
+- The existing Local Data Vault export path continues to invoke Google Sheet auto-sync.
+
+App code status:
+
+- No PhonePe parser logic, duplicate detection, Google Sheet sync implementation, AI Agent, Local Data Vault structure, Home calculations, Reports, Accounts, AI icon, Dictate Mode, or bottom navigation design was changed.
+- No terminal or Flutter commands were run.
+
 ## 2026-07-06 - Point 39 Compact Bottom Navigation Trial
 
 Role: Frontend Engineer
