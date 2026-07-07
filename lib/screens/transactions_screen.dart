@@ -274,7 +274,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (dialogContext, setDialogState) => AlertDialog(
-            title: const Text('Enter your current PhonePe balance.'),
+            title: const Text('What is your current PhonePe balance?'),
             content: TextField(
               controller: controller,
               keyboardType:

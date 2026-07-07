@@ -1,5 +1,49 @@
 # Thread Reports
 
+## 2026-07-07 - Point 59 Final Simplest Default PhonePe Account
+
+Role: Backend Engineer + Frontend Engineer
+
+Scope:
+
+- Changed fresh database seeding to create `PhonePe` as the default PhonePe account.
+- Added safe default PhonePe account creation/reuse for existing installs without creating duplicate `PhonePe` / `PhonePe Wallet` accounts.
+- Changed shared PhonePe Sync to always use the default PhonePe account instead of the app default account.
+- Replaced the previous statement-net first-sync flow with the simplest setup: ask current PhonePe balance, create one `First-time Opening Balance`, store `phonePeFirstSyncCompleted` and `phonePeSyncStartAt`, and do not import old statement transactions.
+- Future PhonePe Sync imports only parsed transactions after `phonePeSyncStartAt`.
+
+Preserved behavior:
+
+- Point 60 Total Money Added baseline logic was not changed.
+- Home layout, bottom navigation UI, AI icon, Google Sheet settings, Local Data Vault structure, old `SheetsService` no-op behavior, and Dictate Mode state were not changed.
+- Local Data Vault export and Google Sheet sync still run through the existing vault-based path after data changes.
+
+Command status:
+
+- Only read-only inspection commands were run; no Flutter, git, build, test, run, or analyze commands were run.
+
+## 2026-07-07 - Point 60 Add Provision
+
+Role: Backend Engineer + Frontend Engineer
+
+Scope:
+
+- Added Settings controls for `Set Total Money Added` and `Reset Total Money Added`.
+- Stored the custom counter baseline amount and baseline timestamp separately from transactions and account balances.
+- Updated Home to read Total Money Added from the shared display-counter method.
+- Added the Total Money Added baseline into Local Data Vault summaries for read-only consumers.
+- Added an AI vault reader path for the global Total Money Added counter.
+
+Preserved behavior:
+
+- Account balances, expenses, stored transactions, PhonePe sync imports, duplicate handling, Google Sheet sync settings, Local Data Vault schema shape, and the Point 59 Opening Balance formula were not changed.
+- Expenses do not reduce Total Money Added.
+- Future income after the baseline date increases Total Money Added.
+
+Command status:
+
+- No Flutter commands were run.
+
 ## 2026-07-07 - Point 59 Final Bug Fix
 
 Role: Frontend Engineer + Backend Engineer

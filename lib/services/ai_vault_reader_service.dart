@@ -184,6 +184,11 @@ class AiVaultReaderService {
         .fold<double>(0, (total, txn) => total + _toDouble(txn['amount']));
   }
 
+  Future<double> getTotalMoneyAddedDisplay() async {
+    final snapshot = await _readSnapshot();
+    return _toDouble(snapshot.summaries['totalMoneyAdded']);
+  }
+
   Future<double> getRangeExpense(
     String? from,
     String? to, {

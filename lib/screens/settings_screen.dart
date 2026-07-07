@@ -190,6 +190,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return parsed.toLocal().toString().split('.').first;
   }
 
+  static const _totalMoneyAddedNotice =
+      'This will only change the Total Money Added counter. It will not delete transactions or change account balances.';
+
+  Future<void> _setTotalMoneyAdded() async {
+    final controller = TextEditingController();
+    try {
+      String? errorText;
+      final amount = await showDialog<double>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('Set Total Money Added'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_totalMoneyAddedNotice),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Custom amount',
+                    prefixText: '₹ ',
+                    errorText: errorText,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = double.tryParse(
+                    controller.text.trim().replaceAll(',', ''),
+                  );
+                  if (value == null || value < 0) {
+                    setDialogState(() {
+                      errorText = 'Enter a valid amount.';
+                    });
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(value);
+                },
+                child: const Text('Set'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (amount == null) return;
+      await _db.setTotalMoneyAddedBaseline(amount);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Total Money Added baseline saved.')),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _resetTotalMoneyAdded() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset Total Money Added'),
+        content: Text(_totalMoneyAddedNotice),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await _db.resetTotalMoneyAddedToCurrentBalance();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Total Money Added reset to current total balance.'),
+      ),
+    );
+  }
+
   // Item 11: Reset with mandatory backup prompt
   Future<void> _showResetDialog() async {
     // Step 1: offer backup
@@ -317,6 +412,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     )),
                   ]),
             )),
+
+        _header('TOTAL MONEY ADDED'),
+        Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Column(children: [
+              ListTile(
+                leading: const Icon(Icons.edit_note, color: Colors.indigo),
+                title: const Text('Set Total Money Added'),
+                subtitle: const Text(
+                    'Set a custom counter baseline without changing balances.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _setTotalMoneyAdded,
+              ),
+              _div(),
+              ListTile(
+                leading: const Icon(Icons.restart_alt, color: Colors.orange),
+                title: const Text('Reset Total Money Added'),
+                subtitle: const Text(
+                    'Use current total account balance as the counter baseline.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _resetTotalMoneyAdded,
+              ),
+            ])),
 
         _header('GOOGLE SHEET SYNC'),
         Card(

@@ -53,6 +53,51 @@ class PhonePeSyncService {
       final extension = file.path.split('.').last.toLowerCase();
       debugPrint('[PhonePeSync] Statement found: ${file.path}');
 
+      final importAccount = await _db.ensureDefaultPhonePeAccount();
+      final accountId = importAccount['id'] as int;
+      final accountName = importAccount['name'] as String;
+      final firstSyncCompleted =
+          await _db.isPhonePeFirstSyncCompleted(accountId);
+
+      if (!firstSyncCompleted) {
+        final realPhonePeBalance =
+            await onNeedCurrentPhonePeBalance(accountName);
+        if (realPhonePeBalance == null) {
+          return const PhonePeSyncResult(
+            importedCount: 0,
+            skippedCount: 0,
+            dataChanged: false,
+            isError: true,
+            message:
+                'PhonePe sync cancelled. Current PhonePe balance is required for first-time sync.',
+          );
+        }
+
+        final openingBalanceCount =
+            await _db.insertFirstTimePhonePeOpeningBalance(
+          accountId: accountId,
+          amount: realPhonePeBalance,
+          refreshVault: false,
+        );
+        await _db.markPhonePeFirstSyncCompleted(
+          accountId: accountId,
+          syncStartAt: DateTime.now(),
+        );
+        await _db.exportAllDataToLocalVault();
+        debugPrint(
+          '[PhonePeSync] First-time setup completed for $accountName ($accountId), balance=$realPhonePeBalance, opening inserted=$openingBalanceCount',
+        );
+
+        return const PhonePeSyncResult(
+          importedCount: 0,
+          skippedCount: 0,
+          dataChanged: true,
+          isError: false,
+          message:
+              'PhonePe setup completed. Your current balance is set.\n\nFrom now, only new PhonePe transactions will be added to your PhonePe account in the app.\n\nPlease make one new PhonePe transaction, then download a fresh PhonePe statement, then tap Sync again.\n\nOld PhonePe transactions before this setup will not be imported.',
+        );
+      }
+
       List<PhonePeTransaction> parsed;
       try {
         parsed = extension == 'pdf'
@@ -79,9 +124,38 @@ class PhonePeSyncService {
         );
       }
 
-      final allKeys = parsed.map((transaction) => transaction.dedupeKey).toList();
+      final syncStartAt = await _db.getPhonePeSyncStartAt(accountId);
+      if (syncStartAt == null) {
+        return const PhonePeSyncResult(
+          importedCount: 0,
+          skippedCount: 0,
+          dataChanged: false,
+          isError: true,
+          message:
+              'PhonePe setup date is missing. Please reset PhonePe setup or contact support before syncing.',
+        );
+      }
+      final effectiveSyncStartAt = syncStartAt;
+      final eligibleTransactions = parsed
+          .where((transaction) =>
+              transaction.dateTime.isAfter(effectiveSyncStartAt))
+          .toList();
+
+      if (eligibleTransactions.isEmpty) {
+        return PhonePeSyncResult(
+          importedCount: 0,
+          skippedCount: parsed.length,
+          dataChanged: false,
+          isError: false,
+          message:
+              'No new PhonePe transactions found after setup. Skipped ${parsed.length} old transaction${parsed.length == 1 ? '' : 's'}.',
+        );
+      }
+
+      final allKeys =
+          eligibleTransactions.map((transaction) => transaction.dedupeKey).toList();
       final newKeySet = await _db.filterNewDedupeKeys(allKeys);
-      final newTransactions = parsed
+      final newTransactions = eligibleTransactions
           .where((transaction) => newKeySet.contains(transaction.dedupeKey))
           .toList()
         ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
@@ -98,60 +172,6 @@ class PhonePeSyncService {
         );
       }
 
-      final importAccount = await _db.resolveImportAccount();
-      if (importAccount == null) {
-        return const PhonePeSyncResult(
-          importedCount: 0,
-          skippedCount: 0,
-          dataChanged: false,
-          isError: true,
-          message: 'Please create an account first.',
-        );
-      }
-
-      final accountId = importAccount['id'] as int;
-      final accountName = importAccount['name'] as String;
-      final existingAppBalanceBeforeImport =
-          (importAccount['balance'] as num?)?.toDouble() ?? 0.0;
-      final hasOpeningBalance =
-          await _db.hasFirstTimePhonePeOpeningBalance(accountId);
-
-      int openingBalanceCount = 0;
-      if (!hasOpeningBalance) {
-        final realPhonePeBalance =
-            await onNeedCurrentPhonePeBalance(accountName);
-        if (realPhonePeBalance == null) {
-          return const PhonePeSyncResult(
-            importedCount: 0,
-            skippedCount: 0,
-            dataChanged: false,
-            isError: true,
-            message: 'PhonePe sync cancelled. Current PhonePe balance is required for first-time sync.',
-          );
-        }
-
-        final statementNet = newTransactions.fold<double>(
-          0.0,
-          (total, transaction) =>
-              total +
-              (transaction.type == 'income'
-                  ? transaction.amount
-                  : -transaction.amount),
-        );
-        final openingBalance = realPhonePeBalance -
-            existingAppBalanceBeforeImport -
-            statementNet;
-        openingBalanceCount =
-            await _db.insertFirstTimePhonePeOpeningBalance(
-          accountId: accountId,
-          amount: openingBalance,
-          refreshVault: false,
-        );
-        debugPrint(
-          '[PhonePeSync] First-time opening balance: real=$realPhonePeBalance, existing=$existingAppBalanceBeforeImport, statementNet=$statementNet, opening=$openingBalance, inserted=$openingBalanceCount',
-        );
-      }
-
       debugPrint(
           '[PhonePeSync] Importing into $accountName ($accountId): ${newTransactions.length} new transaction(s).');
       final savedCount = await _db.insertPhonePeTransactions(
@@ -159,18 +179,17 @@ class PhonePeSyncService {
         accountId: accountId,
         refreshVault: false,
       );
-      if (savedCount > 0 || openingBalanceCount > 0) {
+      if (savedCount > 0) {
         await _db.exportAllDataToLocalVault();
       }
 
       return PhonePeSyncResult(
         importedCount: savedCount,
         skippedCount: skippedCount,
-        dataChanged: savedCount > 0 || openingBalanceCount > 0,
+        dataChanged: savedCount > 0,
         isError: false,
-        message: openingBalanceCount > 0
-            ? 'Created First-time Opening Balance. Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.'
-            : 'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate${skippedCount == 1 ? '' : 's'}.',
+        message:
+            'Synced $savedCount new transaction${savedCount == 1 ? '' : 's'}. Skipped $skippedCount duplicate/old transaction${skippedCount == 1 ? '' : 's'}.',
       );
     } catch (error, stackTrace) {
       debugPrint('[PhonePeSync] Sync failed: $error');

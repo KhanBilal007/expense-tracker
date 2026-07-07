@@ -534,7 +534,8 @@ class _AiScreenState extends State<AiScreen> {
   Future<String> _answerMoneyAdded(String question) async {
     final accountName = _stripMoneyAddedPhrases(question);
     if (accountName.isEmpty) {
-      return 'Which account do you mean?';
+      final added = await _db.getTotalMoneyAddedDisplay();
+      return 'Total Money Added is ${_formatMoney(added)}.';
     }
 
     final lookup = await _lookupSingleAccount(accountName);

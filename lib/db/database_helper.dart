@@ -25,7 +25,10 @@ class DatabaseHelper {
   Future<Database> _initDB() async {
     final path = join(await getDatabasesPath(), 'expense_v4.db');
     return openDatabase(path,
-        version: 7, onCreate: _onCreate, onUpgrade: _onUpgrade);
+        version: 7,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+        onOpen: _ensureDefaultPhonePeAccountInDb);
   }
 
   Future<void> _onCreate(Database db, int v) async {
@@ -61,7 +64,7 @@ class DatabaseHelper {
     }
     await db.insert('accounts', {'name': 'Cash', 'balance': 0.0});
     await db.insert('accounts', {'name': 'Bank', 'balance': 0.0});
-    await db.insert('accounts', {'name': 'PhonePe Wallet', 'balance': 0.0});
+    await db.insert('accounts', {'name': 'PhonePe', 'balance': 0.0});
   }
 
   Future<void> _onUpgrade(Database db, int oldV, int newV) async {
@@ -91,6 +94,24 @@ class DatabaseHelper {
         await db.execute("ALTER TABLE accounts ADD COLUMN home_order INTEGER");
       }
     }
+    await _ensureDefaultPhonePeAccountInDb(db);
+  }
+
+  Future<void> _ensureDefaultPhonePeAccountInDb(Database db) async {
+    final existing = await db.query('accounts');
+    final hasPhonePe = existing.any((account) {
+      final name = account['name']?.toString() ?? '';
+      return _isPhonePeAccountName(name);
+    });
+    if (!hasPhonePe) {
+      await db.insert('accounts', {'name': 'PhonePe', 'balance': 0.0});
+      debugPrint('[PhonePeImport] Created default PhonePe account');
+    }
+  }
+
+  bool _isPhonePeAccountName(String value) {
+    final normalized = _normalizeAccountName(value);
+    return normalized == 'phonepe' || normalized == 'phonepe wallet';
   }
 
   Future<int?> getDefaultAccountId() async =>
@@ -129,6 +150,23 @@ class DatabaseHelper {
     debugPrint(
         '[PhonePeImport] selected import account name=${selected['name']}');
     return selected;
+  }
+
+  Future<Map<String, dynamic>> ensureDefaultPhonePeAccount() async {
+    final db = await database;
+    await _ensureDefaultPhonePeAccountInDb(db);
+    final accounts = await getAccounts();
+    final exactMatches = accounts.where((account) =>
+        _normalizeAccountName(account['name']?.toString() ?? '') == 'phonepe');
+    if (exactMatches.isNotEmpty) return exactMatches.first;
+
+    final phonePeMatches = accounts.where((account) =>
+        _isPhonePeAccountName(account['name']?.toString() ?? ''));
+    if (phonePeMatches.isNotEmpty) return phonePeMatches.first;
+
+    final id = await insertAccount('PhonePe', 0.0);
+    final account = await getAccountById(id);
+    return account ?? {'id': id, 'name': 'PhonePe', 'balance': 0.0};
   }
 
   Future<void> exportAllDataToLocalVault() async {
@@ -261,6 +299,8 @@ class DatabaseHelper {
       'totalCurrentBalance': await getTotalBalance(),
       'todayExpense': await getTodayExpense(),
       'thisMonthExpense': await getMonthlyExpense(month),
+      'totalMoneyAdded': await getTotalMoneyAddedDisplay(),
+      'totalMoneyAddedBaseline': await getTotalMoneyAddedBaseline(),
       'accountWiseBalances': accountSummaries
           .map((summary) => {
                 'accountId': summary['accountId'],
@@ -583,6 +623,45 @@ class DatabaseHelper {
       _refreshLocalDataVaultSafely();
     }
     return inserted;
+  }
+
+  String _phonePeFirstSyncCompletedKey(int accountId) =>
+      'phonePeFirstSyncCompleted_$accountId';
+  String _phonePeSyncStartAtKey(int accountId) =>
+      'phonePeSyncStartAt_$accountId';
+
+  Future<bool> isPhonePeFirstSyncCompleted(int accountId) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_phonePeFirstSyncCompletedKey(accountId)) == true) {
+      return true;
+    }
+    if (prefs.getBool('phonePeFirstSyncCompleted') == true &&
+        prefs.getInt('phonePeDefaultAccountId') == accountId) {
+      return true;
+    }
+    return hasFirstTimePhonePeOpeningBalance(accountId);
+  }
+
+  Future<DateTime?> getPhonePeSyncStartAt(int accountId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_phonePeSyncStartAtKey(accountId)) ??
+        (prefs.getInt('phonePeDefaultAccountId') == accountId
+            ? prefs.getString('phonePeSyncStartAt')
+            : null);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> markPhonePeFirstSyncCompleted({
+    required int accountId,
+    required DateTime syncStartAt,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final iso = syncStartAt.toIso8601String();
+    await prefs.setBool(_phonePeFirstSyncCompletedKey(accountId), true);
+    await prefs.setString(_phonePeSyncStartAtKey(accountId), iso);
+    await prefs.setBool('phonePeFirstSyncCompleted', true);
+    await prefs.setString('phonePeSyncStartAt', iso);
+    await prefs.setInt('phonePeDefaultAccountId', accountId);
   }
 
   double _balanceEffectForTransaction(String type, double amount) {
@@ -1071,6 +1150,51 @@ class DatabaseHelper {
     return (r.first['total'] as num?)?.toDouble() ?? 0.0;
   }
 
+  Future<Map<String, dynamic>?> getTotalMoneyAddedBaseline() async {
+    final prefs = await SharedPreferences.getInstance();
+    final amount = prefs.getDouble('total_money_added_baseline_amount');
+    final date = prefs.getString('total_money_added_baseline_date');
+    if (amount == null || date == null) return null;
+    return {
+      'amount': amount,
+      'date': date,
+    };
+  }
+
+  Future<void> setTotalMoneyAddedBaseline(double amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('total_money_added_baseline_amount', amount);
+    await prefs.setString(
+      'total_money_added_baseline_date',
+      DateTime.now().toIso8601String(),
+    );
+    _refreshLocalDataVaultSafely();
+  }
+
+  Future<void> resetTotalMoneyAddedToCurrentBalance() async {
+    await setTotalMoneyAddedBaseline(await getTotalBalance());
+  }
+
+  Future<double> getTotalMoneyAddedDisplay() async {
+    final baseline = await getTotalMoneyAddedBaseline();
+    final baselineAmount = (baseline?['amount'] as num?)?.toDouble();
+    final baselineDate = baseline?['date']?.toString();
+    final args = <dynamic>[];
+    var where = "type='income'";
+    if (baselineAmount != null &&
+        baselineDate != null &&
+        baselineDate.isNotEmpty) {
+      where += ' AND date > ?';
+      args.add(baselineDate);
+    }
+    final r = await (await database).rawQuery(
+      'SELECT SUM(amount) as total FROM transactions WHERE $where',
+      args,
+    );
+    final addedAfterBaseline = (r.first['total'] as num?)?.toDouble() ?? 0.0;
+    return (baselineAmount ?? 0.0) + addedAfterBaseline;
+  }
+
   Future<Map<int, double>> getCategoryExpensesById(String month) async {
     final r = await (await database).rawQuery(
         "SELECT category_id, SUM(amount) as total FROM transactions WHERE type='expense' AND date LIKE ? AND category_id IS NOT NULL GROUP BY category_id",
@@ -1410,6 +1534,10 @@ class DatabaseHelper {
       'reset_transaction_id_',
       'reset_transaction_date_',
       'reset_opening_balance_',
+      'total_money_added_baseline_',
+      'phonePeFirstSyncCompleted',
+      'phonePeSyncStartAt',
+      'phonePeDefaultAccountId',
     ];
 
     for (final key in prefs.getKeys()) {

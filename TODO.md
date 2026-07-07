@@ -69,3 +69,5 @@
 66. [x] Point 59 Follow-up Bug Fix: Fix first-time PhonePe balance dialog controller lifecycle crash. Fixed 2026-07-07.
 67. [x] Point 59 Local Vault Export Bug Fix: Make Local Data Vault JSON writes safe after PhonePe import. Fixed 2026-07-07.
 68. [x] Point 59 Final Bug Fix: Prevent balance-dialog lifecycle crash and double Google Sheet sync after PhonePe import. Fixed 2026-07-07.
+69. [x] Point 60 Add Provision: Add Settings controls to set/reset Total Money Added baseline without changing balances or transactions. Fixed 2026-07-07.
+70. [x] Point 59 Final Simplest: Use a default PhonePe account and skip old statement transactions during first setup. Fixed 2026-07-07.

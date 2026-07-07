@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 59 Final Simplest applied: PhonePe Sync now uses a single default PhonePe account, first setup creates only `First-time Opening Balance` for the entered current balance, and future sync imports only statement transactions after `phonePeSyncStartAt`.
+- Point 60 Add Provision applied: Settings now lets the user set a custom Total Money Added baseline or reset it to current total account balance without changing balances, transactions, expenses, PhonePe sync records, or the Opening Balance formula.
 - Point 59 final bug fix applied: first-time PhonePe balance dialogs now avoid controller teardown races, and PhonePe sync now performs one final Local Data Vault / Google Sheet sync after opening balance plus import completes.
 - Point 59 Local Vault Export Bug Fix applied: Local Data Vault JSON writes now serialize full exports, recreate the vault directory before each file write, use unique flushed temp files, and fall back to direct target writes if rename fails.
 - Point 59 follow-up bug fix applied: first-time PhonePe balance dialogs now await `showDialog` before disposing their `TextEditingController`, preventing the disposed-controller red screen.

@@ -36,3 +36,8 @@
 32. Point 56: Google Sheet sync must have only one active network sender path: Local Data Vault -> `GoogleSheetSyncService` -> Google Sheet. Legacy per-transaction `SheetsService` calls may remain only as no-op compatibility calls.
 33. Point 56 follow-up / 55 minimal config: For the current developer build, the Apps Script Web App `/exec` endpoint is configured in `SyncSettingsService` and consumed only by the single vault-based Google Sheet sync path.
 34. Point 55 resume: Settings may save a custom endpoint, but the effective endpoint is resolved only through `SyncSettingsService`; OFF continues to block Google Sheet network sync.
+35. Point 60: Total Money Added is a separate display counter from Current Balance; expenses must not reduce it.
+36. Point 60: Setting or resetting Total Money Added stores only a counter baseline and timestamp; it must not change account balances, delete transactions, alter expenses, alter PhonePe sync transactions, or change the Opening Balance formula.
+37. Point 59 Final Simplest: PhonePe Sync must always use one default PhonePe account created/reused by the app; the user should not create that account manually.
+38. Point 59 Final Simplest: First PhonePe setup creates only `First-time Opening Balance` from the entered current PhonePe balance, stores `phonePeFirstSyncCompleted` and `phonePeSyncStartAt`, and does not import old statement transactions or use the statement-net formula.
+39. Point 59 Final Simplest: Future PhonePe Sync imports only transactions after `phonePeSyncStartAt` and must not ask for the current balance again.

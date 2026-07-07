@@ -96,9 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final recent = await _db.getTransactions(limit: 5);
       final accounts = await _db.getAccounts();
       final homeAccounts = await _db.getHomeAccounts();
+      final totalMoneyAdded = await _db.getTotalMoneyAddedDisplay();
       final summaries = <int, Map<String, double>>{};
       double selectedCurrentBalance = 0;
-      double selectedTotalMoneyAdded = 0;
       double selectedSpent = 0;
       double selectedTodayExpenses = 0;
       double selectedThisMonthExpenses = 0;
@@ -107,7 +107,6 @@ class _HomeScreenState extends State<HomeScreen> {
         final summary = await _db.getAccountSummary(id);
         summaries[id] = summary;
         selectedCurrentBalance += summary['currentBalance'] ?? 0;
-        selectedTotalMoneyAdded += summary['totalMoneyAdded'] ?? 0;
         selectedSpent += summary['spent'] ?? 0;
         selectedTodayExpenses += summary['todayExpenses'] ?? 0;
         selectedThisMonthExpenses += summary['thisMonthExpenses'] ?? 0;
@@ -117,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _totalBalance = selectedCurrentBalance;
         _todayExpense = selectedTodayExpenses;
         _monthlyExpense = selectedThisMonthExpenses;
-        _monthlyIncome = selectedTotalMoneyAdded;
+        _monthlyIncome = totalMoneyAdded;
         _accountSpent = selectedSpent;
         _recent = recent;
         _accounts = accounts;
@@ -179,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (dialogContext, setDialogState) => AlertDialog(
-            title: const Text('Enter your current PhonePe balance.'),
+            title: const Text('What is your current PhonePe balance?'),
             content: TextField(
               controller: controller,
               keyboardType:

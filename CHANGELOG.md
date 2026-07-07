@@ -2,6 +2,8 @@
 
 ## 2026-07-07
 
+- Point 59 Final Simplest: PhonePe Sync now uses one default PhonePe account, first setup creates only `First-time Opening Balance` from the entered current balance, and future sync imports only transactions after setup time.
+- Point 60 Add Provision: Added Settings controls to set or reset the Total Money Added counter baseline without changing balances, transactions, expenses, PhonePe sync records, or Opening Balance logic.
 - Point 59 Final Bug Fix: Deferred first-time PhonePe balance dialog controller disposal and reduced PhonePe import vault export/Google Sheet sync to one final run after the batch completes.
 - Point 59 Local Vault Export Bug Fix: Made Local Data Vault JSON writes safer with serialized exports, unique flushed temp files, directory recreation, and direct-write fallback on rename failure.
 - Point 59 Follow-up Bug Fix: Fixed first-time PhonePe balance dialog `TextEditingController` lifecycle and added invalid amount validation without changing the Opening Balance formula.
