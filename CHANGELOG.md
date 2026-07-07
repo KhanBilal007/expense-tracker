@@ -2,6 +2,8 @@
 
 ## 2026-07-07
 
+- Point 62: Changed Home summary cards to use all-account totals while preserving selected/first-two visible account cards.
+- Point 61: Removed the sync-managed PhonePe account from manual Add Money and Add Expense account dropdowns while preserving PhonePe Sync access.
 - Point 59 Final Simplest: PhonePe Sync now uses one default PhonePe account, first setup creates only `First-time Opening Balance` from the entered current balance, and future sync imports only transactions after setup time.
 - Point 60 Add Provision: Added Settings controls to set or reset the Total Money Added counter baseline without changing balances, transactions, expenses, PhonePe sync records, or Opening Balance logic.
 - Point 59 Final Bug Fix: Deferred first-time PhonePe balance dialog controller disposal and reduced PhonePe import vault export/Google Sheet sync to one final run after the batch completes.

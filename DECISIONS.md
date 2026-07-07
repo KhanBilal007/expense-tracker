@@ -41,3 +41,5 @@
 37. Point 59 Final Simplest: PhonePe Sync must always use one default PhonePe account created/reused by the app; the user should not create that account manually.
 38. Point 59 Final Simplest: First PhonePe setup creates only `First-time Opening Balance` from the entered current PhonePe balance, stores `phonePeFirstSyncCompleted` and `phonePeSyncStartAt`, and does not import old statement transactions or use the statement-net formula.
 39. Point 59 Final Simplest: Future PhonePe Sync imports only transactions after `phonePeSyncStartAt` and must not ask for the current balance again.
+40. Point 61: The default PhonePe account is managed by PhonePe Sync only and must not be available in manual Add Money or Add Expense account selection.
+41. Point 62: Home summary cards must calculate across all app accounts, including PhonePe, while the visible Home Accounts section may still show only selected/first-two accounts.

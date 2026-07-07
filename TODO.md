@@ -71,3 +71,5 @@
 68. [x] Point 59 Final Bug Fix: Prevent balance-dialog lifecycle crash and double Google Sheet sync after PhonePe import. Fixed 2026-07-07.
 69. [x] Point 60 Add Provision: Add Settings controls to set/reset Total Money Added baseline without changing balances or transactions. Fixed 2026-07-07.
 70. [x] Point 59 Final Simplest: Use a default PhonePe account and skip old statement transactions during first setup. Fixed 2026-07-07.
+71. [x] Point 61: Exclude sync-managed PhonePe account from manual Add Money/Add Expense account selection. Fixed 2026-07-07.
+72. [x] Point 62: Make Home summary totals use all accounts while keeping visible account cards unchanged. Fixed 2026-07-07.

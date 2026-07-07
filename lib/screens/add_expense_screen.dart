@@ -19,13 +19,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override void dispose() { _amountCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
-    final accounts = await _db.getAccounts(); final categories = await _db.getCategories(); final defAccId = await _db.getDefaultAccountId();
+    final accounts = await _db.getManualEntryAccounts(); final categories = await _db.getCategories(); final defAccId = await _db.getDefaultAccountId();
     if (!mounted) return;
     setState(() {
       _accounts = accounts; _categories = categories;
       _selectedAccount  = (defAccId != null && accounts.any((a) => a['id'] == defAccId)) ? defAccId : (accounts.isNotEmpty ? accounts.first['id'] as int : null);
       if (categories.isNotEmpty) _selectedCategory = categories.first['id'] as int;
     });
+    if (accounts.isEmpty && mounted) {
+      _snack('Please create another account for manual entries. PhonePe is managed by Sync.');
+    }
   }
 
   Future<void> _checkBudget(int? catId) async {
@@ -48,7 +51,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) { _snack('Enter a valid amount'); return; }
-    if (_selectedAccount == null) { _snack('Select an account'); return; }
+    if (_selectedAccount == null) { _snack('Please create another account for manual entries. PhonePe is managed by Sync.'); return; }
     if (_selectedCategory == null) { _snack('Select a category'); return; }
     final account = _accounts.firstWhere((a) => a['id'] == _selectedAccount);
     final balance = (account['balance'] as num).toDouble();
@@ -83,7 +86,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           const Text('From Account *', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6),
           DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: _selectedAccount, hint: const Text('Select account'),
             items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${formatMoneyWhole(a['balance'] as num)}'))).toList(),
-            onChanged: (v) => setState(() => _selectedAccount = v))),
+            onChanged: _accounts.isEmpty ? null : (v) => setState(() => _selectedAccount = v))),
         ])),
         const SizedBox(height: 14),
         _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

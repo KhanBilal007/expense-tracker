@@ -114,6 +114,10 @@ class DatabaseHelper {
     return normalized == 'phonepe' || normalized == 'phonepe wallet';
   }
 
+  bool isPhonePeAccount(Map<String, dynamic> account) {
+    return _isPhonePeAccountName(account['name']?.toString() ?? '');
+  }
+
   Future<int?> getDefaultAccountId() async =>
       (await SharedPreferences.getInstance()).getInt('default_account_id');
   Future<void> setDefaultAccountId(int id) async =>
@@ -365,6 +369,12 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getAccounts() async =>
       (await database).query('accounts', orderBy: 'name ASC');
+
+  Future<List<Map<String, dynamic>>> getManualEntryAccounts() async {
+    final accounts = await getAccounts();
+    return accounts.where((account) => !isPhonePeAccount(account)).toList();
+  }
+
   Future<List<Map<String, dynamic>>> getHomeAccounts() async {
     final db = await database;
     final selected = await db.query(

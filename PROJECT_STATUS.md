@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 62 applied: Home summary cards now calculate totals across all accounts while the visible Accounts section can still show the selected/first-two accounts.
+- Point 61 applied: manual Add Money and Add Expense account dropdowns now exclude the sync-managed PhonePe account and show a friendly message if no manual account exists.
 - Point 59 Final Simplest applied: PhonePe Sync now uses a single default PhonePe account, first setup creates only `First-time Opening Balance` for the entered current balance, and future sync imports only statement transactions after `phonePeSyncStartAt`.
 - Point 60 Add Provision applied: Settings now lets the user set a custom Total Money Added baseline or reset it to current total account balance without changing balances, transactions, expenses, PhonePe sync records, or the Opening Balance formula.
 - Point 59 final bug fix applied: first-time PhonePe balance dialogs now avoid controller teardown races, and PhonePe sync now performs one final Local Data Vault / Google Sheet sync after opening balance plus import completes.

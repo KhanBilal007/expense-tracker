@@ -97,27 +97,29 @@ class _HomeScreenState extends State<HomeScreen> {
       final accounts = await _db.getAccounts();
       final homeAccounts = await _db.getHomeAccounts();
       final totalMoneyAdded = await _db.getTotalMoneyAddedDisplay();
+      final totalBalance = await _db.getTotalBalance();
+      final todayExpense = await _db.getTodayExpense();
+      final month = DateFormat('yyyy-MM').format(DateTime.now());
+      final thisMonthExpense = await _db.getMonthlyExpense(month);
       final summaries = <int, Map<String, double>>{};
-      double selectedCurrentBalance = 0;
-      double selectedSpent = 0;
-      double selectedTodayExpenses = 0;
-      double selectedThisMonthExpenses = 0;
+      double allAccountSpent = 0;
       for (final account in homeAccounts) {
         final id = account['id'] as int;
         final summary = await _db.getAccountSummary(id);
         summaries[id] = summary;
-        selectedCurrentBalance += summary['currentBalance'] ?? 0;
-        selectedSpent += summary['spent'] ?? 0;
-        selectedTodayExpenses += summary['todayExpenses'] ?? 0;
-        selectedThisMonthExpenses += summary['thisMonthExpenses'] ?? 0;
+      }
+      for (final account in accounts) {
+        final id = account['id'] as int;
+        final summary = summaries[id] ?? await _db.getAccountSummary(id);
+        allAccountSpent += summary['spent'] ?? 0;
       }
       if (!mounted) return;
       setState(() {
-        _totalBalance = selectedCurrentBalance;
-        _todayExpense = selectedTodayExpenses;
-        _monthlyExpense = selectedThisMonthExpenses;
+        _totalBalance = totalBalance;
+        _todayExpense = todayExpense;
+        _monthlyExpense = thisMonthExpense;
         _monthlyIncome = totalMoneyAdded;
-        _accountSpent = selectedSpent;
+        _accountSpent = allAccountSpent;
         _recent = recent;
         _accounts = accounts;
         _homeAccounts = homeAccounts;

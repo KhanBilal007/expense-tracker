@@ -1,5 +1,49 @@
 # Thread Reports
 
+## 2026-07-07 - Point 62 Home All-Account Summary Totals
+
+Role: Backend Engineer + Frontend Engineer
+
+Scope:
+
+- Updated Home summary cards to use all-account totals instead of selected Home account totals.
+- `Total Money Added` continues to use the Point 60 display counter.
+- `Current Balance` now uses `DatabaseHelper.getTotalBalance()`.
+- `Today` now uses `DatabaseHelper.getTodayExpense()`.
+- `This Month` now uses `DatabaseHelper.getMonthlyExpense(...)` for the current month.
+- `Expenses` now sums `getAccountSummary(...).spent` across all accounts.
+
+Preserved behavior:
+
+- Visible Home account cards still use selected/first-two account behavior.
+- Point 59 PhonePe Sync, Point 60 Total Money Added baseline logic, and Point 61 PhonePe manual-entry restriction were not changed.
+- Home layout, bottom navigation UI, AI icon, Local Data Vault, Google Sheet sync settings, and AI logic were not changed.
+
+Command status:
+
+- Only read-only inspection commands were run; no Flutter, git, build, test, run, or analyze commands were run.
+
+## 2026-07-07 - Point 61 PhonePe Manual Entry Filter
+
+Role: Frontend Engineer + Backend Engineer
+
+Scope:
+
+- Added a shared database helper to identify PhonePe accounts and return manual-entry accounts.
+- Updated Add Money to exclude PhonePe from the account dropdown.
+- Updated Add Expense to exclude PhonePe from the account dropdown.
+- Added the friendly empty-state message: `Please create another account for manual entries. PhonePe is managed by Sync.`
+
+Preserved behavior:
+
+- PhonePe account still exists, remains visible in account/Home displays, and remains available to PhonePe Sync.
+- Point 59 PhonePe Sync logic and Point 60 Total Money Added logic were not changed.
+- Local Data Vault, Google Sheet sync, AI Agent, Home layout, bottom navigation, and Settings were not changed.
+
+Command status:
+
+- Only read-only inspection commands were run; no Flutter, git, build, test, run, or analyze commands were run.
+
 ## 2026-07-07 - Point 59 Final Simplest Default PhonePe Account
 
 Role: Backend Engineer + Frontend Engineer

@@ -18,19 +18,22 @@ class _AddMoneyScreenState extends State<AddMoneyScreen> {
   @override void dispose() { _amountCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
 
   Future<void> _load() async {
-    final accounts = await _db.getAccounts();
+    final accounts = await _db.getManualEntryAccounts();
     final defAccId = await _db.getDefaultAccountId();
     if (!mounted) return;
     setState(() {
       _accounts = accounts;
       _selectedAccount = (defAccId != null && accounts.any((a) => a['id'] == defAccId)) ? defAccId : (accounts.isNotEmpty ? accounts.first['id'] as int : null);
     });
+    if (accounts.isEmpty && mounted) {
+      _snack('Please create another account for manual entries. PhonePe is managed by Sync.');
+    }
   }
 
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) { _snack('Enter a valid amount'); return; }
-    if (_selectedAccount == null) { _snack('Select an account'); return; }
+    if (_selectedAccount == null) { _snack('Please create another account for manual entries. PhonePe is managed by Sync.'); return; }
     setState(() => _saving = true);
     try {
       final account = _accounts.firstWhere((a) => a['id'] == _selectedAccount);
@@ -64,7 +67,7 @@ class _AddMoneyScreenState extends State<AddMoneyScreen> {
           const Text('To Account *', style: TextStyle(fontWeight: FontWeight.bold)), const SizedBox(height: 6),
           DropdownButtonHideUnderline(child: DropdownButton<int>(isExpanded: true, value: _selectedAccount, hint: const Text('Select account'),
             items: _accounts.map((a) => DropdownMenuItem<int>(value: a['id'] as int, child: Text('${a['name']}  ₹${formatMoneyWhole(a['balance'] as num)}'))).toList(),
-            onChanged: (v) => setState(() => _selectedAccount = v))),
+            onChanged: _accounts.isEmpty ? null : (v) => setState(() => _selectedAccount = v))),
         ])),
         const SizedBox(height: 14),
         _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
