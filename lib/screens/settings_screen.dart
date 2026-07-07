@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(endpoint.isEmpty
-            ? 'Google Sheet endpoint cleared. Configured endpoint will be used.'
+            ? 'Google Sheet endpoint cleared.'
             : 'Google Sheet endpoint saved.'),
       ),
     );

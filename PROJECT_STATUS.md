@@ -1,6 +1,6 @@
 # Project Status
 
-Date: 2026-07-06
+Date: 2026-07-07
 
 ## Project
 
@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 11 APK-sharing audit completed: `BUG_AUDIT_REPORT.md` now records inspected files, verified flows, fixed/documented bugs, manual release checks, and APK readiness status.
+- Point 11 audit fix applied: Google Sheet sync endpoint resolution no longer falls back to the developer/test Apps Script URL when the saved endpoint is empty, protecting shared APK users from accidental sync to the owner's Sheet.
 - Point 62 applied: Home summary cards now calculate totals across all accounts while the visible Accounts section can still show the selected/first-two accounts.
 - Point 61 applied: manual Add Money and Add Expense account dropdowns now exclude the sync-managed PhonePe account and show a friendly message if no manual account exists.
 - Point 59 Final Simplest applied: PhonePe Sync now uses a single default PhonePe account, first setup creates only `First-time Opening Balance` for the entered current balance, and future sync imports only statement transactions after `phonePeSyncStartAt`.

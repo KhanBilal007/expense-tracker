@@ -11,7 +11,7 @@
 8. [x] Mark unclear PDF categories as Uncategorized. Fixed 2026-07-05.
 9. [x] Add reset account choice: Reset by Date or Reset by Amount. Fixed 2026-07-05.
 10. [x] Implement Reset by Date using recalculation up to selected date. Fixed 2026-07-05.
-11. Run full bug audit after each major change.
+11. [x] Run full bug audit after each major change. Latest APK-sharing audit completed 2026-07-07.
 12. [x] Fix Accounts screen lifecycle crash risk and account row vertical text layout. Fixed 2026-07-05.
 13. [x] Verify Accounts Edit Cancel closes safely without using parent context. Fixed 2026-07-05.
 14. [x] Fix remaining Add Account lifecycle crash on save. Fixed 2026-07-05.
@@ -73,3 +73,10 @@
 70. [x] Point 59 Final Simplest: Use a default PhonePe account and skip old statement transactions during first setup. Fixed 2026-07-07.
 71. [x] Point 61: Exclude sync-managed PhonePe account from manual Add Money/Add Expense account selection. Fixed 2026-07-07.
 72. [x] Point 62: Make Home summary totals use all accounts while keeping visible account cards unchanged. Fixed 2026-07-07.
+73. [x] Point 11: Complete APK-sharing static bug audit and create `BUG_AUDIT_REPORT.md`. Fixed 2026-07-07.
+74. [x] Point 11: Remove Google Sheet developer endpoint fallback from runtime endpoint resolution. Fixed 2026-07-07.
+75. Review whether PhonePe imported/system transactions should be blocked from manual account changes.
+76. Review first PhonePe setup behavior for existing nonzero PhonePe accounts without setup markers.
+77. Review Android SMS/storage permissions before wider APK sharing or Play Store release.
+78. Review hidden old Hindi preference now that visible Language settings were removed.
+79. Perform a secondary dialog lifecycle cleanup pass for Categories, Budgets, Rules, and Recurring.

@@ -39,9 +39,7 @@ class SyncSettingsService {
     final prefs = await SharedPreferences.getInstance();
     final endpoint = prefs.getString(_endpointKey)?.trim() ?? '';
     if (isValidGoogleSheetEndpoint(endpoint)) return endpoint;
-    return isValidGoogleSheetEndpoint(configuredGoogleSheetEndpoint)
-        ? configuredGoogleSheetEndpoint
-        : '';
+    return '';
   }
 
   Future<void> setGoogleSheetEndpoint(String endpoint) async {

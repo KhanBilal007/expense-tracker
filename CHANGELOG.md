@@ -2,6 +2,7 @@
 
 ## 2026-07-07
 
+- Point 11: Completed APK-sharing static bug audit in `BUG_AUDIT_REPORT.md` and fixed Google Sheet endpoint fallback so shared APK users cannot accidentally sync to the developer/test Sheet.
 - Point 62: Changed Home summary cards to use all-account totals while preserving selected/first-two visible account cards.
 - Point 61: Removed the sync-managed PhonePe account from manual Add Money and Add Expense account dropdowns while preserving PhonePe Sync access.
 - Point 59 Final Simplest: PhonePe Sync now uses one default PhonePe account, first setup creates only `First-time Opening Balance` from the entered current balance, and future sync imports only transactions after setup time.

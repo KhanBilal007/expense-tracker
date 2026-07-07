@@ -1454,3 +1454,29 @@ App code status:
 
 - No app code changed.
 - No UI, navigation, calculations, routes, database schema, or business logic changed.
+## 2026-07-07 - Point 11 APK Sharing Bug Audit
+
+Role: QA / Debug Engineer
+
+Scope:
+
+- Inspected the main app, database, PhonePe sync, manual entry flows, Home totals, Settings, Local Data Vault, Google Sheet sync, AI Agent, permissions, package config, and shared docs by code inspection.
+- Created `BUG_AUDIT_REPORT.md` with inspected files, verified flows, bugs found, severity, fixed/documented status, manual test checklist, recommended next points, and APK readiness status.
+- Fixed one high-severity APK-sharing privacy/configuration issue: Google Sheet sync no longer falls back to the developer/test Apps Script endpoint when no user endpoint is saved.
+- Updated the Settings endpoint-cleared message so it no longer implies a configured endpoint will be used.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Test fresh install default PhonePe account behavior.
+- Test first and future PhonePe Sync.
+- Test Add Money/Add Expense account lists.
+- Test Home all-account totals.
+- Test Google Sheet Sync OFF/ON/empty endpoint behavior.
+- Test Local Data Vault export and AI Agent vault answers.
+
+App code status:
+
+- Only the Google Sheet endpoint configuration safety path and related Settings message were changed.
+- No Home layout, PhonePe sync formula, Point 60 Total Money Added logic, Point 61 PhonePe manual-entry restriction, Point 62 all-account Home totals, AI Agent logic, Local Data Vault schema, or Google Sheet sync transport path was changed.

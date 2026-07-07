@@ -1,150 +1,188 @@
 # Bug Audit Report
 
-Date: 2026-07-06
-Point: 11
-Method: Full static code and configuration inspection. No terminal or Flutter commands were run.
+Date: 2026-07-07
+
+Point No: 11
 
 ## Summary
 
-The active application paths are present and internally connected: startup, Home,
-Accounts, transaction entry, transfers, Transactions, shared PhonePe sync, Reports,
-Local Data Vault, Google Sheet sync, and the read-only AI Agent.
+Full static project audit completed before APK sharing. The audit inspected the core Flutter app flows, PhonePe sync, Local Data Vault, Google Sheet sync, AI Agent vault reader path, Settings, permissions, and shared project docs.
 
-Four small low-risk fixes were made during the audit. Larger findings were not changed
-because they affect persistence, sync behavior, permissions, or multiple feature flows.
-`flutter analyze`, tests, and runtime verification are still required from the user.
+No Flutter, build, test, analyze, git, delete, rename, or run commands were executed.
+
+One high-severity APK-sharing privacy bug was fixed: Google Sheet sync no longer falls back to the developer/test Apps Script endpoint when the saved endpoint is empty. Google Sheet sync remains OFF by default and now requires an explicitly saved user endpoint before any Google network sync can run.
+
+## Files Inspected
+
+- `lib/main.dart`
+- `lib/db/database_helper.dart`
+- `lib/screens/home_screen.dart`
+- `lib/screens/accounts_screen.dart`
+- `lib/screens/add_expense_screen.dart`
+- `lib/screens/add_money_screen.dart`
+- `lib/screens/transactions_screen.dart`
+- `lib/screens/settings_screen.dart`
+- `lib/screens/ai_screen.dart`
+- `lib/screens/reports_screen.dart`
+- `lib/services/phonepe_sync_service.dart`
+- `lib/services/phonepe_statement_parser.dart`
+- `lib/services/downloads_scanner_service.dart`
+- `lib/services/local_data_vault_service.dart`
+- `lib/services/google_sheet_sync_service.dart`
+- `lib/services/sync_settings_service.dart`
+- `lib/services/sheets_service.dart`
+- `lib/services/ai_vault_reader_service.dart`
+- `pubspec.yaml`
+- `android/app/src/main/AndroidManifest.xml`
+- Shared project docs
 
 ## Features Verified By Code Inspection
 
-- App startup initializes Flutter, preferences, recurring processing, routes, and Home.
-- Home reads account summaries from `DatabaseHelper.getAccountSummary(...)`.
-- Home account selection remains limited to two persisted account choices.
-- Accounts add/edit dialogs use dialog-local contexts and delayed list refresh.
-- Add Expense and Add Money validate amount and account selection.
-- Transfers validate accounts, balance, and use one SQLite transaction.
-- Transactions loads filters, account changes, and the shared PhonePe sync service.
-- Home Sync and Transactions Sync both call `PhonePeSyncService`.
-- PhonePe sync scans Downloads, parses statements, filters dedupe keys, and auto-imports.
-- PhonePe imports continue through `insertPhonePeTransactions(...)`, preserving vault export.
-- Reports reads shared account summaries and supports Reset by Date and Reset by Amount.
-- Reset by Date recalculates through `calculateAccountBalanceAtDate(...)` without deleting transactions.
-- Visible money formatting uses whole-rupee formatting; internal dedupe decimals remain intact.
-- Local Data Vault writes all expected JSON files through temporary files.
-- Google Sheet sync has timeout, redirect handling, status persistence, and a retry method.
-- AI reads Local Data Vault and contains no database write, external AI, mic, or speech path.
-- Bottom navigation remains Home, AI, and Sync with the compact layout.
-- Android manifest contains network, SMS, and storage permissions used by current services.
-- The selected AI icon asset exists and is registered in `pubspec.yaml`.
+- Fresh database initialization seeds and reuses a single default `PhonePe` account.
+- Existing installs call `ensureDefaultPhonePeAccount()` from database open/setup paths.
+- PhonePe Sync uses the default PhonePe account and does not ask the user to select an account.
+- First PhonePe setup creates `First-time Opening Balance` only, marks setup complete, and does not import old statement transactions.
+- Future PhonePe Sync filters statement transactions after `phonePeSyncStartAt`.
+- PhonePe imported transactions still use dedupe keys before insert.
+- Manual Add Money and Add Expense use `getManualEntryAccounts()`, which excludes PhonePe.
+- If only PhonePe exists, manual Add Money/Add Expense show a friendly manual-account message instead of crashing.
+- Home summary cards use all-account totals while visible account cards can still show selected/first-two accounts.
+- Total Money Added display uses the Point 60 baseline logic.
+- Local Data Vault exports the required JSON files and serializes exports.
+- Google Sheet sync uses the Local Data Vault payload path through `GoogleSheetSyncService`.
+- Legacy `SheetsService` is a compatibility no-op and does not send per-transaction network requests.
+- Google Sheet sync respects the enabled/disabled setting before network sync.
+- Apps Script 302/303 redirect handling is centralized in Google Sheet sync.
+- AI Agent reads from Local Data Vault and remains read-only.
+- Dictate Mode/mic code was not reintroduced.
+- Settings no longer shows the visible Language option.
+- Home light-mode base colors are theme-aware while preserving layout dimensions.
 
-## Possible Bugs Found
+## Bugs Found
 
-### High Priority
+### High - Fixed
 
-1. Add Expense, Add Money, foreground SMS import, background SMS import, and recurring
-   processing update an account balance and insert its transaction in separate database
-   operations. A failure between operations can leave balance and transaction history inconsistent.
+**Google Sheet endpoint fallback could leak APK user data to the developer/test Sheet.**
 
-2. `retryPendingGoogleSheetSync()` has no caller. Failed sync status is recorded, but
-   automatic later retry is not currently wired to startup, resume, or a data-change hook.
+`SyncSettingsService.getGoogleSheetEndpoint()` returned the developer configured endpoint when no endpoint was saved. If a shared APK user enabled Google Sheet Sync without entering their own Apps Script URL, app data could sync to the developer Sheet.
 
-3. Two Google Sheet integrations coexist. Settings and Add Expense/Add Money/Transfer use
-   legacy `SheetsService` and preference key `sheets_script_url`; vault sync uses
-   `GoogleSheetSyncService` and `google_sheet_sync_endpoint`. The Settings URL therefore does
-   not configure the active vault sync, and per-row posts may duplicate or conflict with bulk sync.
+Status: Fixed.
 
-4. SMS ingestion has no transaction ID or dedupe key. Foreground/background delivery or an
-   app restart can potentially import the same SMS more than once. SMS listening also starts
-   automatically during app startup.
+Fix: `getGoogleSheetEndpoint()` now returns only the saved valid endpoint. Empty or invalid saved endpoint returns an empty string, causing Google Sheet sync to skip with `GOOGLE_SHEET_SYNC_SKIPPED=no_endpoint_configured`.
 
-### Medium Priority
+Files changed:
 
-5. Local Data Vault exports are launched with `unawaited(...)` after many database writes.
-   Concurrent exports share the same `.tmp` paths and can race with each other or with AI reads
-   and Google sync status writes.
+- `lib/services/sync_settings_service.dart`
+- `lib/screens/settings_screen.dart`
 
-6. Categories, Budgets, Rules, and Recurring dialogs still close with the parent screen context
-   and refresh inside button callbacks. This resembles the lifecycle pattern previously fixed in
-   Accounts and should be hardened in a dedicated dialog-safety point.
+### Medium - Documented
 
-7. Recurring processing is not atomic and advances monthly dates with Dart overflow semantics.
-   Dates such as the 29th, 30th, or 31st may skip into a later month. Only one occurrence is
-   processed when several periods were missed.
+**PhonePe transaction account-change action may allow moving sync-managed PhonePe records manually.**
 
-8. Startup awaits recurring processing before `runApp` without a top-level recovery path.
-   A database/plugin exception can prevent the first frame from appearing.
+The Transactions screen includes account-change behavior for transactions. This can conflict with the rule that PhonePe should be managed only by Sync. This was not changed during the audit because it affects transaction management behavior and needs a specific product decision.
 
-9. Settings says `Reset App Data` / `ALL data`, but the implementation clears transactions and
-   transfers and zeroes balances while retaining accounts, categories, rules, budgets, and recurring items.
+Recommended next point: restrict account changes for PhonePe imported/opening-balance system records, or confirm that admin correction is allowed.
 
-10. Android requests broad SMS and `MANAGE_EXTERNAL_STORAGE` permissions. These may be required
-    by current features, but they need device-version and distribution-policy verification.
+### Medium - Documented
 
-11. Release configuration currently signs with the debug key. This is acceptable for local
-    testing but not for production distribution.
+**Existing reused PhonePe account with nonzero balance before first setup can produce confusing first setup totals.**
 
-### Low Priority / Maintenance
+Point 59 intentionally creates a First-time Opening Balance equal to the entered current PhonePe balance and skips old statement imports. On fresh install this is correct. On an existing install where a pre-existing PhonePe/PhonePe Wallet account already has balance but no setup marker, adding the full entered balance could make the stored PhonePe balance exceed the entered balance.
 
-12. `ImportReviewScreen` remains compiled but has no active caller after automatic import replaced it.
-13. `models.dart` is not used by the active map-based persistence/UI paths.
-14. The widget test is only a shallow smoke test; finance, parser, sync, reset, vault, and AI
-    behavior have no automated regression coverage in the repository.
+This was not changed because it touches Point 59 balance behavior.
+
+Recommended next point: decide whether first setup should require an empty PhonePe account or calculate an offset only for existing nonzero PhonePe accounts.
+
+### Medium - Documented
+
+**Android storage and SMS permissions are release-risk areas.**
+
+The manifest includes broad storage/SMS permissions, including `MANAGE_EXTERNAL_STORAGE`, `READ_SMS`, and `RECEIVE_SMS`. These may be acceptable for side-loaded APK testing but can be blockers or privacy concerns for broader distribution.
+
+Recommended next point: review permissions before public sharing or Play Store release.
+
+### Low - Documented
+
+**Hidden old Hindi preference can still affect locale.**
+
+The visible Settings Language option was removed, but `main.dart` still reads the `hindi` preference. If an old install had Hindi enabled before the option was removed, the app may continue using Hindi with no visible Settings control to change it.
+
+Recommended next point: either clear/deprecate the old `hindi` preference or restore a deliberate language setting later.
+
+### Low - Documented
+
+**Some secondary dialogs may still use older lifecycle patterns.**
+
+Earlier high-risk account and PhonePe dialogs were fixed. Some less-used dialogs, especially recurring-related flows, should still be reviewed for dialog-local context and post-close refresh patterns.
+
+Recommended next point: perform a dialog lifecycle cleanup pass on Categories, Budgets, Rules, and Recurring.
+
+### Low - Documented
+
+**Mojibake rupee symbols remain in some source strings.**
+
+Several UI strings appear to contain incorrectly encoded rupee symbols in source. Whole-rupee formatting helpers cover many visible amount displays, but a text/encoding polish pass is still recommended before final release.
 
 ## Low-Risk Fixes Made
 
-- Removed the unused transaction ID local from Add Money without changing insertion behavior.
-- Removed an unused `ColorScheme` local from Rules.
-- Replaced a redundant PhonePe transaction ID null assertion with a promoted local variable.
-- Corrected the Transactions end-date filter to exclude midnight at the start of the next day.
-- Replaced the default Flutter README with a project-specific overview and manual verification commands.
-- Corrected stale current-baseline entries in `PROJECT_STATUS.md`.
+- Removed the developer/test Google Sheet endpoint fallback from runtime endpoint resolution.
+- Updated the Settings empty-endpoint snackbar so it no longer says a configured endpoint will be used after clearing the field.
 
 ## Risky Fixes Not Made
 
-- No financial write methods were refactored into new SQLite transactions.
-- No legacy Google Sheet integration or Settings field was removed or rewired.
-- No automatic retry trigger was added.
-- No SMS listener, permission, or parser behavior was changed.
-- No vault write queue/lock was introduced.
-- No secondary dialog lifecycle methods were rewritten.
-- No recurring schedule calculation was changed.
-- No release signing or Android permission was changed.
-- No dormant file was deleted.
+- PhonePe transaction account-change restriction.
+- Existing nonzero PhonePe account first-setup offset behavior.
+- Android permission reduction.
+- Hidden old Hindi preference cleanup.
+- Recurring and secondary dialog lifecycle refactor.
+- Broad rupee-symbol text cleanup.
+
+These were documented instead of changed because each could affect app behavior or user data flows beyond this audit.
 
 ## Analyzer Issues Remaining
 
-`flutter analyze` was not run because the task explicitly prohibits terminal commands.
-Static inspection removed two likely unused-local reports and one redundant assertion candidate.
-The actual remaining analyzer count is unknown until the user runs the analyzer.
+`flutter analyze` was not run because Flutter commands were explicitly disallowed for this audit. The user should run it manually before APK sharing.
 
-Potential non-analyzer quality issues remain in long, densely formatted files. Large formatting
-or refactoring changes were intentionally avoided.
+Likely areas to watch:
+
+- Unused compatibility constants or methods around Google Sheet sync settings.
+- Any remaining deprecated Flutter APIs in less-used screens.
+- Any stale test references after app class changes.
 
 ## Manual Test Checklist
 
-1. Launch after a clean install and after an existing database upgrade.
-2. Create, edit, cancel, and delete Accounts operations.
-3. Add Expense and Add Money; compare account balance and transaction history.
-4. Transfer between two accounts and verify both transaction rows and balances.
-5. Filter Transactions with an end date and verify next-day midnight is excluded.
-6. Sync with no PhonePe PDF, a valid PDF, and the same PDF twice.
-7. Confirm Home and Transactions refresh after PhonePe import.
-8. Confirm Local Data Vault files and counts update after each write flow.
-9. Disable internet, create data, inspect pending sync status, restore internet, and test retry.
-10. Verify Google Sheet rows are not duplicated by legacy and vault sync paths.
-11. Test Reset by Date and Reset by Amount for one account with income, expense, and transfers.
-12. Compare Home and Reports totals for the same selected account.
-13. Ask AI direct, fuzzy-account, follow-up date, and recent-transaction questions.
-14. Test recurring items on month-end dates and after several missed periods.
-15. Test Android SMS/storage permission denial and acceptance flows.
-16. Check Home, AI, and Sync bottom navigation on small screens and increased font scale.
+1. Fresh install / clear app data.
+2. Open app and confirm the `PhonePe` account exists once.
+3. Confirm no duplicate `PhonePe` account appears after restart.
+4. Tap Add Money and confirm PhonePe is not shown.
+5. Tap Add Expense and confirm PhonePe is not shown.
+6. With only PhonePe present, confirm Add Money/Add Expense show the friendly manual-account message.
+7. Run first PhonePe Sync, enter a current balance, and confirm only `First-time Opening Balance` is created.
+8. Confirm old PhonePe statement transactions are not imported during first setup.
+9. Download a fresh statement after setup and confirm only new transactions after setup import.
+10. Re-sync the same PDF and confirm no duplicate transactions or duplicate opening balance.
+11. Confirm Home Total Money Added, Current Balance, Today, Expenses, and This Month use all accounts.
+12. Confirm Google Sheet Sync is OFF by default on a fresh install.
+13. With Google Sheet Sync OFF, perform a data change and confirm no Google sync network log appears except disabled/skip logs.
+14. Enable Google Sheet Sync, enter a valid `/exec` endpoint, sync, and confirm SyncLog success.
+15. Clear the endpoint while sync is ON and confirm sync skips with no endpoint configured.
+16. Confirm Local Data Vault files exist after PhonePe Sync.
+17. Ask AI for balance and recent transactions and confirm answers come from Local Data Vault.
+18. Toggle light/dark mode and confirm Home remains readable.
+19. Open Settings and confirm Language is not visible while Google Sheet Sync settings remain visible.
+20. Run `flutter analyze` manually and review any remaining warnings.
 
 ## Recommended Next Points
 
-1. Make Add Expense, Add Money, SMS import, and recurring processing atomic database operations.
-2. Consolidate the two Google Sheet integrations and make Settings configure the active endpoint.
-3. Wire pending Google Sheet retry to a safe startup/resume or connectivity-aware trigger.
-4. Serialize Local Data Vault exports and sync status writes.
-5. Apply the safe dialog-context/result pattern to Categories, Budgets, Rules, and Recurring.
-6. Define month-end recurring behavior and add catch-up limits.
-7. Add unit/widget tests for calculations, reset, dedupe, parser, vault, sync, and AI queries.
-8. Review Android permissions and configure production release signing.
+- Restrict account changes for PhonePe imported/system transactions if user confirms PhonePe should be fully sync-managed.
+- Decide nonzero existing PhonePe account behavior during first setup.
+- Review Android SMS/storage permissions before APK sharing beyond trusted testers.
+- Add automated tests for PhonePe setup/import, all-account Home totals, Point 60 Total Money Added baseline, vault export, and Google Sheet sync gating.
+- Perform a secondary dialog lifecycle cleanup pass.
+- Run a source text encoding polish pass for rupee symbols.
+
+## APK Readiness Status
+
+Status: Conditionally ready for trusted manual APK testing after user runs the manual checks.
+
+The main APK-sharing privacy blocker found in this audit was fixed. No build or analyzer verification was run in this task, so APK sharing should wait until the user runs `flutter analyze`, `flutter test` if available, and an actual debug/release run on device.
