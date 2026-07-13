@@ -1,5 +1,40 @@
 # Thread Reports
 
+## 2026-07-13 - Point 64 Reports Reset Calculation Terminology
+
+Role: Senior Flutter Engineer + Project Architect
+
+Scope:
+
+- Updated Reports reset calculation metadata in `lib/db/database_helper.dart`.
+- Updated Reports reset UI text in `lib/screens/reports_screen.dart`.
+- Restored the reset-by-transaction report formula:
+  - Balance Before Reset = Account Opening Balance + transaction effects before the selected reset transaction.
+  - New Starting Balance = selected reset amount.
+  - Reports after reset calculate Available Funds from Balance Before Reset + New Starting Balance + post-reset money added.
+  - Spent is post-reset expenses.
+  - Current Balance is Available Funds minus Spent.
+- Kept Account Opening Balance terminology only for real account creation / PhonePe first-time opening balance contexts.
+- Reset UI now shows Balance Before Reset and New Starting Balance instead of reset opening balance wording.
+
+Preserved behavior:
+
+- Previous transactions are not deleted.
+- Reset transaction records are not changed.
+- PhonePe Sync / Point 59 was not changed.
+- Total Money Added / Point 60 was not changed.
+- PhonePe manual-entry restriction / Point 61 was not changed.
+- Home all-account totals / Point 62 were not changed.
+- AI Agent, Local Data Vault, and Google Sheet Sync were not changed.
+
+Verification for user:
+
+- Run `flutter analyze`.
+- Run `flutter run`.
+- Test: account opening balance 0, transactions +500, -100, -50, reset from 100, then +80, -20.
+- Expected Reports for the correction example: Account Opening Balance 100, Expense 10, reset on Money Added 20, then Money Added 40 and Expense 30 should show Balance Before Reset 90, New Starting Balance 20, Available Funds 150, Spent 30, Current Balance 120.
+- Confirm old transactions remain visible in transaction history.
+
 ## 2026-07-07 - Point 62 Home All-Account Summary Totals
 
 Role: Backend Engineer + Frontend Engineer

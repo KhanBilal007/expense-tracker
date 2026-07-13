@@ -1,6 +1,6 @@
 # Project Status
 
-Date: 2026-07-07
+Date: 2026-07-13
 
 ## Project
 
@@ -19,6 +19,8 @@ Expense Tracker Flutter app.
 
 ## Current Status
 
+- Point 64 applied: Reports reset calculations now use the corrected formula where Balance Before Reset is preserved, New Starting Balance is added, and post-reset money added/expenses are applied after that.
+- Point 64 terminology cleanup applied: reset UI now says `Balance Before Reset` and `New Starting Balance` instead of using `Opening Balance` for reset context.
 - Point 11 APK-sharing audit completed: `BUG_AUDIT_REPORT.md` now records inspected files, verified flows, fixed/documented bugs, manual release checks, and APK readiness status.
 - Point 11 audit fix applied: Google Sheet sync endpoint resolution no longer falls back to the developer/test Apps Script URL when the saved endpoint is empty, protecting shared APK users from accidental sync to the owner's Sheet.
 - Point 62 applied: Home summary cards now calculate totals across all accounts while the visible Accounts section can still show the selected/first-two accounts.

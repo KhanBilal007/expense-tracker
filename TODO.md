@@ -80,3 +80,4 @@
 77. Review Android SMS/storage permissions before wider APK sharing or Play Store release.
 78. Review hidden old Hindi preference now that visible Language settings were removed.
 79. Perform a secondary dialog lifecycle cleanup pass for Categories, Budgets, Rules, and Recurring.
+80. [x] Point 64: Restore Reports reset calculation and rename reset terminology to Balance Before Reset / New Starting Balance. Fixed 2026-07-13.

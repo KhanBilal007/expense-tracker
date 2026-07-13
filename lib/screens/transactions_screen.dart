@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
-import '../services/phonepe_sync_service.dart';
 import '../utils/money_formatter.dart';
 
 class TransactionsScreen extends StatefulWidget {
@@ -12,7 +11,6 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   final _db = DatabaseHelper();
-  final _phonePeSync = PhonePeSyncService();
   List<Map<String, dynamic>> _all = [],
       _filtered = [],
       _accounts = [],
@@ -21,7 +19,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Set<int> _resetTransactionIds = {};
   int? _filterAccount, _filterCategory;
   DateTime? _fromDate, _toDate; // item 12: date range
-  bool _syncing = false;
 
   @override
   void initState() {
@@ -127,7 +124,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           icon: const Icon(Icons.calendar_today, size: 14),
                           label: Text(
                               _fromDate != null
-                                  ? DateFormat('dd MMM yy').format(_fromDate!)
+                                  ? DateFormat('dd MMM yy', 'en')
+                                      .format(_fromDate!)
                                   : 'From',
                               style: const TextStyle(fontSize: 12)),
                           onPressed: () async {
@@ -135,7 +133,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 context: ctx,
                                 initialDate: _fromDate ?? DateTime.now(),
                                 firstDate: DateTime(2020),
-                                lastDate: DateTime.now());
+                                lastDate: DateTime.now(),
+                                locale: const Locale('en'));
                             if (d != null) {
                               setS(() => _fromDate = d);
                               setState(() {
@@ -150,7 +149,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           icon: const Icon(Icons.calendar_today, size: 14),
                           label: Text(
                               _toDate != null
-                                  ? DateFormat('dd MMM yy').format(_toDate!)
+                                  ? DateFormat('dd MMM yy', 'en')
+                                      .format(_toDate!)
                                   : 'To',
                               style: const TextStyle(fontSize: 12)),
                           onPressed: () async {
@@ -159,7 +159,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 initialDate: _toDate ?? DateTime.now(),
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now()
-                                    .add(const Duration(days: 365)));
+                                    .add(const Duration(days: 365)),
+                                locale: const Locale('en'));
                             if (d != null) {
                               setS(() => _toDate = d);
                               setState(() {
@@ -246,26 +247,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  // PhonePe statement sync (replaces the old SMS paste feature)
-  Future<void> _syncPhonePe() async {
-    if (_syncing) return;
-    debugPrint('[TransactionsScreen] ===== Sync PhonePe button tapped =====');
-    setState(() => _syncing = true);
-    try {
-      final result = await _phonePeSync.sync(
-        onNeedFolderPick: _showFolderPickDialog,
-        onNeedCurrentPhonePeBalance: _showCurrentPhonePeBalanceDialog,
-      );
-      if (!mounted) return;
-      if (result.dataChanged) await _load();
-      if (!mounted) return;
-      _snack(result.message, error: result.isError);
-    } finally {
-      if (mounted) setState(() => _syncing = false);
-      debugPrint('[TransactionsScreen] ===== Sync PhonePe flow finished =====');
-    }
-  }
-
+  // ignore: unused_element
   Future<double?> _showCurrentPhonePeBalanceDialog(String accountName) async {
     final controller = TextEditingController();
     try {
@@ -391,6 +373,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<bool> _showFolderPickDialog() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -442,20 +425,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
         actions: [
-          _syncing
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Center(
-                      child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.sync_alt_rounded),
-                  tooltip: 'Sync PhonePe',
-                  onPressed: _syncPhonePe),
           Stack(alignment: Alignment.topRight, children: [
             IconButton(
                 icon: const Icon(Icons.filter_list),
@@ -532,7 +501,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       color: cs.primary,
                                       fontWeight: FontWeight.w500)),
                             Text(
-                                '${t['account_name'] ?? ''} • ${DateFormat('dd MMM yyyy, hh:mm a').format(date)}',
+                                '${t['account_name'] ?? ''} • ${DateFormat('dd MMM yyyy, hh:mm a', 'en').format(date)}',
                                 style: const TextStyle(
                                     fontSize: 11, color: Colors.grey)),
                           ]),

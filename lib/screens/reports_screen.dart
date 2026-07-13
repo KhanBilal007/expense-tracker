@@ -17,7 +17,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   DateTime? _to;
   double _accountTotal = 0, _expense = 0, _balance = 0;
   String? _resetDate;
-  double _resetBase = 0, _resetAmount = 0, _resetOpening = 0;
+  double _resetBase = 0, _resetAmount = 0, _balanceBeforeReset = 0;
   Map<String, double> _catExp = {};
   List<Map<String, dynamic>> _txs = [], _accounts = [];
   Set<int> _resetTransactionIds = {};
@@ -56,7 +56,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     setState(() => _loading = true);
     try {
       String? resetDate;
-      double resetBase = 0, resetAmount = 0, resetOpening = 0;
+      double resetBase = 0, resetAmount = 0, balanceBeforeReset = 0;
       double reportTotal = 0, expense = 0, reportBalance = 0;
       if (_selectedAccountId != null) {
         final summary = await _db.getAccountSummary(_selectedAccountId!);
@@ -66,7 +66,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         resetDate = await _db.getResetDate(_selectedAccountId!);
         resetBase = await _db.getResetReportBase(_selectedAccountId!);
         resetAmount = await _db.getResetAmount(_selectedAccountId!);
-        resetOpening = await _db.getResetOpeningBalance(_selectedAccountId!);
+        balanceBeforeReset =
+            await _db.getResetBalanceBeforeReset(_selectedAccountId!);
       } else {
         final accounts =
             _accounts.isNotEmpty ? _accounts : await _db.getAccounts();
@@ -92,7 +93,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _resetDate = resetDate;
         _resetBase = resetBase;
         _resetAmount = resetAmount;
-        _resetOpening = resetOpening;
+        _balanceBeforeReset = balanceBeforeReset;
         _resetTransactionIds = resetIds;
         _catExp = catExp;
         _txs = txs;
@@ -107,7 +108,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         context: context,
         initialDate: _from ?? _to ?? DateTime.now(),
         firstDate: DateTime(2020),
-        lastDate: _to ?? DateTime.now());
+        lastDate: _to ?? DateTime.now(),
+        locale: const Locale('en'));
     if (d != null) {
       setState(() => _from = d);
       _load();
@@ -119,7 +121,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         context: context,
         initialDate: _to ?? DateTime.now(),
         firstDate: _from ?? DateTime(2020),
-        lastDate: DateTime.now());
+        lastDate: DateTime.now(),
+        locale: const Locale('en'));
     if (d != null) {
       setState(() => _to = d);
       _load();
@@ -200,7 +203,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${formatMoneyWhole(resetAmount)}'),
+            'Reset on ${DateFormat('dd MMM yyyy', 'en').format(DateTime.now())} from amount ₹${formatMoneyWhole(resetAmount)}'),
         backgroundColor: Colors.green,
       ));
       _load();
@@ -278,6 +281,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       initialDate: _to ?? _from ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
+      locale: const Locale('en'),
     );
     if (selectedDate == null) return;
 
@@ -298,7 +302,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Confirm Reset by Date'),
         content: Text(
-          'Recalculate "$accountName" balance up to ${DateFormat('dd MMM yyyy').format(selectedDate)} as ₹${formatMoneyWhole(balance)}?\n\nTransactions will not be deleted.',
+          'Recalculate "$accountName" balance up to ${DateFormat('dd MMM yyyy', 'en').format(selectedDate)} as ₹${formatMoneyWhole(balance)}?\n\nTransactions will not be deleted.',
         ),
         actions: [
           TextButton(
@@ -345,14 +349,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final reset =
         await _db.resetAccountFromTransaction(_selectedAccountId!, tx);
     final amount = reset['amount'] ?? 0;
-    final opening = reset['opening'] ?? 0;
+    final balanceBeforeReset = reset['balanceBeforeReset'] ?? 0;
 
     if (!mounted) return;
     setState(() => _selectingReset = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(
-          'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.now())} from amount ₹${formatMoneyWhole(amount)} with opening balance ₹${formatMoneyWhole(opening)}'),
+          'Balance Reset Successful\n\nBalance Before Reset: ₹${formatMoneyWhole(balanceBeforeReset)}\nNew Starting Balance: ₹${formatMoneyWhole(amount)}\n\nPrevious transactions are preserved.\nFuture balances will be calculated from the new starting balance.'),
       backgroundColor: Colors.green,
+      duration: const Duration(seconds: 7),
     ));
     _load();
   }
@@ -462,7 +467,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final dayFmt = DateFormat('dd MMM yyyy');
+    final dayFmt = DateFormat('dd MMM yyyy', 'en');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reports'),
@@ -517,7 +522,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                               child: Text(
-                            'Reset on ${DateFormat('dd MMM yyyy').format(DateTime.parse(_resetDate!))} from amount ₹${formatMoneyWhole(_resetAmount)} with opening balance ₹${formatMoneyWhole(_resetOpening)}',
+                            'Reset on ${DateFormat('dd MMM yyyy', 'en').format(DateTime.parse(_resetDate!))}. Balance Before Reset ₹${formatMoneyWhole(_balanceBeforeReset)}. Reset Amount ₹${formatMoneyWhole(_resetAmount)}',
                             style: const TextStyle(
                                 color: Colors.green, fontSize: 12),
                           )),
@@ -715,7 +720,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                           style: TextStyle(
                                               fontSize: 11, color: cs.primary)),
                                     Text(
-                                        DateFormat('dd MMM, hh:mm a')
+                                        DateFormat('dd MMM, hh:mm a', 'en')
                                             .format(date),
                                         style: const TextStyle(
                                             fontSize: 11, color: Colors.grey)),

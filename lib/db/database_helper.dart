@@ -1340,12 +1340,14 @@ class DatabaseHelper {
     final prefs = await SharedPreferences.getInstance();
     final acc = await getAccountById(accountId);
     if (acc == null) return;
-    final reportBase = (acc['balance'] as num).toDouble();
+    final balanceBeforeReset = (acc['balance'] as num).toDouble();
     await prefs.setString(
         'reset_date_$accountId', DateTime.now().toIso8601String());
     await prefs.setDouble('reset_amount_$accountId', resetAmount);
-    await prefs.setDouble('reset_report_base_$accountId', reportBase);
-    await prefs.setDouble('reset_balance_$accountId', reportBase);
+    await prefs.setDouble(
+        'reset_balance_before_reset_$accountId', balanceBeforeReset);
+    await prefs.setDouble('reset_report_base_$accountId', resetAmount);
+    await prefs.setDouble('reset_balance_$accountId', resetAmount);
     _refreshLocalDataVaultSafely();
   }
 
@@ -1362,6 +1364,15 @@ class DatabaseHelper {
     final resetDate = DateTime.tryParse(resetDateRaw) ?? DateTime.now();
     final resetId = transaction['id'] as int? ?? 0;
 
+    final account = await getAccountById(accountId);
+    final currentStoredBalance =
+        account == null ? 0.0 : (account['balance'] as num).toDouble();
+    final allRows = await db.query(
+      'transactions',
+      columns: ['type', 'amount'],
+      where: 'account_id=?',
+      whereArgs: [accountId],
+    );
     final previousRows = await db.query(
       'transactions',
       columns: ['type', 'amount'],
@@ -1369,26 +1380,41 @@ class DatabaseHelper {
       whereArgs: [accountId, resetDateRaw, resetDateRaw, resetId],
     );
 
-    double opening = 0;
-    for (final row in previousRows) {
-      opening += _balanceEffectForTransaction(
+    double allEffects = 0;
+    for (final row in allRows) {
+      allEffects += _balanceEffectForTransaction(
         row['type'] as String? ?? 'expense',
         (row['amount'] as num?)?.toDouble() ?? 0,
       );
     }
 
-    final reportBase = opening + resetAmount;
+    final accountOpeningBalance = currentStoredBalance - allEffects;
+    double previousEffects = 0;
+    for (final row in previousRows) {
+      previousEffects += _balanceEffectForTransaction(
+        row['type'] as String? ?? 'expense',
+        (row['amount'] as num?)?.toDouble() ?? 0,
+      );
+    }
+
+    final balanceBeforeReset = accountOpeningBalance + previousEffects;
+    final reportBase = balanceBeforeReset + resetAmount;
     final cutoffDate =
         resetDate.add(const Duration(microseconds: 1)).toIso8601String();
     await prefs.setString('reset_date_$accountId', cutoffDate);
     await prefs.setInt('reset_transaction_id_$accountId', resetId);
     await prefs.setString('reset_transaction_date_$accountId', resetDateRaw);
     await prefs.setDouble('reset_amount_$accountId', resetAmount);
-    await prefs.setDouble('reset_opening_balance_$accountId', opening);
+    await prefs.setDouble(
+        'reset_balance_before_reset_$accountId', balanceBeforeReset);
     await prefs.setDouble('reset_report_base_$accountId', reportBase);
     await prefs.setDouble('reset_balance_$accountId', reportBase);
     _refreshLocalDataVaultSafely();
-    return {'amount': resetAmount, 'opening': opening, 'base': reportBase};
+    return {
+      'amount': resetAmount,
+      'balanceBeforeReset': balanceBeforeReset,
+      'base': reportBase,
+    };
   }
 
   Future<Map<String, double>?> calculateAccountBalanceAtDate(
@@ -1450,8 +1476,6 @@ class DatabaseHelper {
     if (result == null) return null;
 
     final balance = result['balance'] ?? 0;
-    final opening = result['opening'] ?? 0;
-    final transactionEffect = result['transaction_effect'] ?? 0;
     final cutoffDate = DateTime(
       selectedDate.year,
       selectedDate.month,
@@ -1467,8 +1491,8 @@ class DatabaseHelper {
     await prefs.setString('reset_date_$accountId', cutoffDate);
     await prefs.remove('reset_transaction_id_$accountId');
     await prefs.remove('reset_transaction_date_$accountId');
-    await prefs.setDouble('reset_amount_$accountId', transactionEffect);
-    await prefs.setDouble('reset_opening_balance_$accountId', opening);
+    await prefs.setDouble('reset_amount_$accountId', balance);
+    await prefs.setDouble('reset_balance_before_reset_$accountId', balance);
     await prefs.setDouble('reset_report_base_$accountId', balance);
     await prefs.setDouble('reset_balance_$accountId', balance);
     _refreshLocalDataVaultSafely();
@@ -1486,9 +1510,10 @@ class DatabaseHelper {
         0.0;
   }
 
-  Future<double> getResetOpeningBalance(int accountId) async {
-    return (await SharedPreferences.getInstance())
-            .getDouble('reset_opening_balance_$accountId') ??
+  Future<double> getResetBalanceBeforeReset(int accountId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('reset_balance_before_reset_$accountId') ??
+        prefs.getDouble('reset_opening_balance_$accountId') ??
         0.0;
   }
 
@@ -1520,6 +1545,7 @@ class DatabaseHelper {
       'reset_balance_$accountId',
       'reset_transaction_id_$accountId',
       'reset_transaction_date_$accountId',
+      'reset_balance_before_reset_$accountId',
       'reset_opening_balance_$accountId',
     ];
     for (final key in keys) {
@@ -1543,6 +1569,7 @@ class DatabaseHelper {
       'reset_balance_',
       'reset_transaction_id_',
       'reset_transaction_date_',
+      'reset_balance_before_reset_',
       'reset_opening_balance_',
       'total_money_added_baseline_',
       'phonePeFirstSyncCompleted',

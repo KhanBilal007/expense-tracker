@@ -441,14 +441,19 @@ class _HomeScreenState extends State<HomeScreen> {
       required String action,
       required VoidCallback onTap}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title,
-            style: TextStyle(
-                color: _textMain, fontSize: 19, fontWeight: FontWeight.w800)),
+        Expanded(
+          child: Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: _textMain, fontSize: 19, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(width: 8),
         GestureDetector(
           onTap: onTap,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(action,
                   style: const TextStyle(
@@ -665,10 +670,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w700),
               ),
             ),
-            Text(
-              _money(bal),
-              style: TextStyle(
-                  color: _textMain, fontSize: 18, fontWeight: FontWeight.w900),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 112),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  _money(bal),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                      color: _textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900),
+                ),
+              ),
             ),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right_rounded,
@@ -708,30 +724,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   _iconBox(icon, color, size: 26, iconSize: 15),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: _textSub,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                            color: _textSub,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],
               ),
               const Spacer(),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(amount,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                        color: amountColor,
-                        fontSize: 18,
-                        height: 1,
-                        fontWeight: FontWeight.w900)),
+              SizedBox(
+                width: double.infinity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(amount,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                          color: amountColor,
+                          fontSize: 18,
+                          height: 1,
+                          fontWeight: FontWeight.w900)),
+                ),
               ),
               const SizedBox(height: 10),
             ],
@@ -757,24 +780,31 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: _textMain,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 1),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(amount,
+                  child: Text(title,
                       maxLines: 1,
                       softWrap: false,
                       style: TextStyle(
-                          color: color,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900)),
+                          color: _textMain,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 1),
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(amount,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900)),
+                  ),
                 ),
               ],
             ),
@@ -831,13 +861,19 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Icon(icon, color: Colors.white, size: 26),
             ),
             const SizedBox(height: 8),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: _textMain,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                        color: _textMain,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
           ],
         ),
       ),

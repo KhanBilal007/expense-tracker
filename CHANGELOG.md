@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-13
+
+- Point 64: Corrected Reports reset calculation so Available Funds use Balance Before Reset + New Starting Balance + post-reset money added, while Balance Before Reset is calculated from Account Opening Balance plus prior transaction effects.
+- Point 64: Renamed reset UI terminology from reset opening balance to Balance Before Reset / New Starting Balance without changing PhonePe, Home, AI, Local Data Vault, or Google Sheet sync logic.
+
 ## 2026-07-07
 
 - Point 11: Completed APK-sharing static bug audit in `BUG_AUDIT_REPORT.md` and fixed Google Sheet endpoint fallback so shared APK users cannot accidentally sync to the developer/test Sheet.
